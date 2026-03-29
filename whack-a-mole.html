@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>WHACK!</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Boogaloo&family=Fredoka+One&display=swap');
+
+  :root {
+    --grass: #3dba4e;
+    --grass-dark: #2a9e3d;
+    --dirt: #b5651d;
+    --dirt-dark: #8B4513;
+    --sky: #87CEEB;
+    --sun: #FFD700;
+    --hole: #2a1a0a;
+    --mole-body: #8B6914;
+    --mole-face: #c4945a;
+    --mole-nose: #d4607a;
+    --gold: #FFD700;
+    --hit-flash: #FF4500;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: 'Boogaloo', cursive;
+    background: var(--sky);
+    touch-action: none;
+    user-select: none;
+  }
+
+  #game-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    height: 100%;
+    width: 100%;
+    max-width: 430px;
+    margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* SKY & CLOUDS */
+  #sky {
+    width: 100%;
+    flex: 0 0 auto;
+    height: 120px;
+    background: linear-gradient(180deg, #5bc8f5 0%, #a8e6f0 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cloud {
+    position: absolute;
+    background: white;
+    border-radius: 50px;
+    opacity: 0.9;
+    animation: drift linear infinite;
+  }
+  .cloud::before, .cloud::after {
+    content: '';
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+  }
+  .c1 { width: 80px; height: 28px; top: 20px; animation-duration: 18s; animation-delay: -5s; }
+  .c1::before { width: 40px; height: 40px; top: -20px; left: 10px; }
+  .c1::after { width: 30px; height: 30px; top: -14px; left: 35px; }
+  .c2 { width: 60px; height: 22px; top: 50px; animation-duration: 25s; animation-delay: -12s; }
+  .c2::before { width: 30px; height: 30px; top: -16px; left: 8px; }
+  .c2::after { width: 22px; height: 22px; top: -10px; left: 28px; }
+  .c3 { width: 70px; height: 24px; top: 30px; animation-duration: 20s; animation-delay: -8s; }
+  .c3::before { width: 35px; height: 35px; top: -18px; left: 12px; }
+
+  @keyframes drift {
+    from { transform: translateX(-150px); }
+    to { transform: translateX(calc(100vw + 150px)); }
+  }
+
+  /* SUN */
+  .sun {
+    position: absolute;
+    right: 20px; top: 12px;
+    width: 55px; height: 55px;
+    background: radial-gradient(circle, #fff5a0 30%, #FFD700 70%);
+    border-radius: 50%;
+    box-shadow: 0 0 20px #FFD70099, 0 0 40px #FFD70055;
+    animation: pulse-sun 3s ease-in-out infinite;
+  }
+  .sun::before {
+    content: '☀️';
+    position: absolute;
+    font-size: 36px;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  @keyframes pulse-sun {
+    0%,100% { box-shadow: 0 0 20px #FFD70099, 0 0 40px #FFD70055; }
+    50% { box-shadow: 0 0 30px #FFD700cc, 0 0 60px #FFD70088; }
+  }
+
+  /* HUD */
+  #hud {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    background: linear-gradient(180deg, #4ade6a 0%, #3dba4e 100%);
+    border-bottom: 4px solid #2a9e3d;
+    position: relative;
+    z-index: 10;
+    flex: 0 0 auto;
+  }
+
+  .hud-box {
+    background: rgba(0,0,0,0.25);
+    border-radius: 12px;
+    padding: 6px 14px;
+    text-align: center;
+    min-width: 90px;
+    border: 2px solid rgba(255,255,255,0.3);
+    backdrop-filter: blur(4px);
+  }
+  .hud-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.8);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .hud-val {
+    font-family: 'Fredoka One', cursive;
+    font-size: 28px;
+    color: #fff;
+    line-height: 1;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+  }
+  #score-val { color: #FFD700; }
+  #timer-val { color: #ff8a65; }
+  #combo-box { min-width: 75px; }
+  #combo-val { color: #7fffd4; }
+
+  /* GROUND */
+  #ground {
+    width: 100%;
+    flex: 1;
+    background: linear-gradient(180deg, #4ade6a 0%, #3dba4e 20%, #3dba4e 100%);
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 0;
+    padding: 10px 8px 20px;
+    align-items: center;
+    justify-items: center;
+  }
+
+  /* Grass texture blobs */
+  #ground::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(ellipse 8px 4px at 10% 15%, #2a9e3d 50%, transparent 50%),
+      radial-gradient(ellipse 6px 3px at 25% 40%, #2a9e3d 50%, transparent 50%),
+      radial-gradient(ellipse 10px 5px at 70% 10%, #2a9e3d 50%, transparent 50%),
+      radial-gradient(ellipse 7px 4px at 85% 55%, #2a9e3d 50%, transparent 50%),
+      radial-gradient(ellipse 9px 4px at 45% 70%, #2a9e3d 50%, transparent 50%),
+      radial-gradient(ellipse 6px 3px at 60% 85%, #2a9e3d 50%, transparent 50%);
+    pointer-events: none;
+  }
+
+  /* MOLE HOLE */
+  .hole-wrap {
+    position: relative;
+    width: 110px;
+    height: 110px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .hole-shadow {
+    position: absolute;
+    bottom: 0;
+    width: 90px;
+    height: 38px;
+    background: radial-gradient(ellipse, #1a0f05 0%, #2a1a0a 50%, transparent 80%);
+    border-radius: 50%;
+    z-index: 1;
+  }
+
+  /* Clip mask: hides mole below the hole's center line */
+  .hole-clip {
+    position: absolute;
+    bottom: 5px;
+    width: 86px;
+    height: 90px; /* tall enough to show mole above */
+    overflow: hidden;
+    z-index: 2;
+    /* only reveal area ABOVE the rim top edge — clip bottom half */
+    clip-path: inset(0 0 16px 0); /* 16px = half of rim height, keeps rim edge as clip */
+  }
+
+  .hole-rim {
+    position: absolute;
+    bottom: 5px;
+    width: 86px;
+    height: 32px;
+    background: radial-gradient(ellipse, #2a1a0a 30%, #4a2e10 70%, #6b4020 100%);
+    border-radius: 50%;
+    z-index: 4; /* sits ON TOP of mole to mask its lower body */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.6), inset 0 -4px 8px rgba(0,0,0,0.4);
+    pointer-events: none;
+  }
+  .hole-rim::after {
+    content: '';
+    position: absolute;
+    top: 3px; left: 5px;
+    width: 30%;
+    height: 40%;
+    background: rgba(255,255,255,0.08);
+    border-radius: 50%;
+  }
+
+  /* MOLE */
+  .mole-container {
+    position: absolute;
+    bottom: 22px; /* sits just below rim level when hidden */
+    width: 80px;
+    height: 90px;
+    z-index: 3;
+    transform: translateY(100%);
+    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+    will-change: transform;
+    pointer-events: none;
+  }
+
+  .hole-wrap.active .hole-clip .mole-container {
+    transform: translateY(0%);
+  }
+  .hole-wrap.hiding .hole-clip .mole-container {
+    transform: translateY(100%);
+    transition: transform 0.22s cubic-bezier(0.55, 0, 1, 0.45);
+  }
+
+  /* Mole SVG body */
+  .mole-svg {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+    animation: idle-bob 1.2s ease-in-out infinite;
+  }
+  .hole-wrap.active .hole-clip .mole-svg { animation: idle-bob 1.2s ease-in-out infinite; }
+
+  @keyframes idle-bob {
+    0%,100% { transform: translateY(0) rotate(-1deg); }
+    50% { transform: translateY(-4px) rotate(1deg); }
+  }
+
+  /* WHACKED state */
+  .hole-wrap.whacked .hole-clip .mole-container {
+    transform: translateY(-10%) !important;
+    transition: none !important;
+  }
+  .hole-wrap.whacked .hole-clip .mole-svg {
+    animation: whack-spin 0.3s ease-out forwards !important;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)) brightness(2) hue-rotate(20deg) !important;
+  }
+  @keyframes whack-spin {
+    0% { transform: rotate(0deg) scale(1); }
+    30% { transform: rotate(-25deg) scale(1.3); }
+    100% { transform: rotate(15deg) scale(0.6) translateY(20px); }
+  }
+
+  /* Stars burst on hit */
+  .star-burst {
+    position: absolute;
+    pointer-events: none;
+    z-index: 20;
+    font-size: 22px;
+    animation: burst 0.6s ease-out forwards;
+  }
+  @keyframes burst {
+    0% { opacity: 1; transform: scale(0.5) translate(0,0); }
+    100% { opacity: 0; transform: scale(1.4) translate(var(--dx), var(--dy)); }
+  }
+
+  /* HIT NUMBER */
+  .hit-num {
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Fredoka One', cursive;
+    font-size: 32px;
+    color: #FFD700;
+    text-shadow: 0 0 10px #ff6600, 2px 2px 0 #c00;
+    pointer-events: none;
+    z-index: 25;
+    animation: float-up 0.7s ease-out forwards;
+  }
+  @keyframes float-up {
+    0% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-55px) scale(1.6); }
+  }
+
+  /* COMBO banner */
+  #combo-banner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    font-family: 'Fredoka One', cursive;
+    font-size: 52px;
+    color: white;
+    text-shadow: 0 0 20px #ff4500, 3px 3px 0 #c00;
+    pointer-events: none;
+    z-index: 100;
+    white-space: nowrap;
+    opacity: 0;
+  }
+  #combo-banner.show {
+    animation: combo-pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+  @keyframes combo-pop {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0) rotate(-10deg); }
+    60% { opacity: 1; transform: translate(-50%, -50%) scale(1.1) rotate(3deg); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8) rotate(0); }
+  }
+
+  /* SCREEN FLASH */
+  #flash {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 50;
+    opacity: 0;
+  }
+  #flash.hit { animation: screen-flash 0.2s ease-out; }
+  @keyframes screen-flash {
+    0% { opacity: 0.55; background: #FFD700; }
+    100% { opacity: 0; }
+  }
+
+  /* START / END SCREEN */
+  #overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    background: linear-gradient(160deg, #1a3a1a 0%, #0d1f0d 100%);
+    padding: 24px;
+    gap: 20px;
+  }
+
+  #overlay h1 {
+    font-family: 'Fredoka One', cursive;
+    font-size: 68px;
+    color: #FFD700;
+    text-shadow: 0 0 30px #ff8c00, 4px 4px 0 #8B4513, 8px 8px 0 rgba(0,0,0,0.4);
+    letter-spacing: 2px;
+    line-height: 1;
+    text-align: center;
+    animation: title-float 2s ease-in-out infinite;
+  }
+  @keyframes title-float {
+    0%,100% { transform: translateY(0) rotate(-1deg); }
+    50% { transform: translateY(-8px) rotate(1deg); }
+  }
+
+  #overlay .subtitle {
+    font-size: 22px;
+    color: #7fffd4;
+    text-align: center;
+    text-shadow: 0 0 10px rgba(127,255,212,0.5);
+  }
+
+  .big-btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: 32px;
+    color: #1a1a1a;
+    background: linear-gradient(180deg, #FFD700 0%, #ff8c00 100%);
+    border: none;
+    border-radius: 50px;
+    padding: 16px 52px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #8B4513, 0 10px 20px rgba(0,0,0,0.5);
+    transition: transform 0.1s, box-shadow 0.1s;
+    letter-spacing: 1px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .big-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 #8B4513, 0 4px 10px rgba(0,0,0,0.4);
+  }
+
+  #end-score { font-family: 'Fredoka One', cursive; font-size: 24px; color: white; text-align: center; }
+  #end-score span { color: #FFD700; font-size: 40px; display: block; }
+
+  .mole-deco {
+    font-size: 64px;
+    animation: deco-bounce 1s ease-in-out infinite;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+  }
+  @keyframes deco-bounce {
+    0%,100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-12px) scale(1.05); }
+  }
+
+  /* Dirt pile under holes */
+  .dirt-pile {
+    position: absolute;
+    bottom: -8px;
+    width: 100px;
+    height: 20px;
+    background: radial-gradient(ellipse, #8B5E3C 0%, #6b4020 60%, transparent 80%);
+    border-radius: 50%;
+    z-index: 0;
+  }
+
+  /* Grass blades */
+  .grass-blade {
+    position: absolute;
+    bottom: 20px;
+    width: 6px;
+    background: linear-gradient(180deg, #2d9e40 0%, #4ade6a 100%);
+    border-radius: 3px 3px 0 0;
+    z-index: 4;
+    transform-origin: bottom center;
+  }
+
+  /* Time low pulse */
+  @keyframes timer-panic {
+    0%,100% { color: #ff4444; transform: scale(1); }
+    50% { color: #ff8888; transform: scale(1.15); }
+  }
+  .panic { animation: timer-panic 0.4s ease-in-out infinite; }
+
+  /* Stars on BG */
+  .bg-star {
+    position: absolute;
+    pointer-events: none;
+    font-size: 18px;
+    opacity: 0;
+    animation: twinkle linear infinite;
+    z-index: 0;
+  }
+  @keyframes twinkle {
+    0%,100% { opacity:0; transform:scale(0.5); }
+    50% { opacity:0.6; transform:scale(1); }
+  }
+</style>
+</head>
+<body>
+
+<div id="game-wrapper">
+  <!-- SKY -->
+  <div id="sky">
+    <div class="sun"></div>
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+    <div class="cloud c3"></div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-box">
+      <div class="hud-label">Score</div>
+      <div class="hud-val" id="score-val">0</div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">Time</div>
+      <div class="hud-val" id="timer-val">30</div>
+    </div>
+    <div class="hud-box" id="combo-box">
+      <div class="hud-label">Combo</div>
+      <div class="hud-val" id="combo-val">x1</div>
+    </div>
+  </div>
+
+  <!-- GROUND / GRID -->
+  <div id="ground">
+    <!-- 9 holes injected by JS -->
+  </div>
+</div>
+
+<!-- EFFECTS -->
+<div id="flash"></div>
+<div id="combo-banner"></div>
+
+<!-- OVERLAY -->
+<div id="overlay">
+  <div class="mole-deco">🐾</div>
+  <h1>WHACK!</h1>
+  <p class="subtitle">Tap the moles before they hide!</p>
+  <button class="big-btn" id="start-btn">PLAY!</button>
+</div>
+
+<script>
+const GRID_SIZE = 9;
+const GAME_DURATION = 30;
+
+// Mole SVG paths - different mole expressions
+function moleSVG(type = 'normal') {
+  const colors = {
+    normal: { body: '#8B6914', face: '#c4945a', nose: '#d4607a', eyes: '#1a0a00' },
+    golden: { body: '#d4a017', face: '#f0c060', nose: '#ff6090', eyes: '#1a0a00' },
+    bomb:   { body: '#333', face: '#555', nose: '#ff3030', eyes: '#ff0000' },
+  };
+  const c = colors[type] || colors.normal;
+  const hatColor = type === 'golden' ? '#cc8800' : type === 'bomb' ? '#111' : '#5c3a1e';
+  return `
+  <svg viewBox="0 0 80 90" xmlns="http://www.w3.org/2000/svg">
+    <!-- Body -->
+    <ellipse cx="40" cy="68" rx="32" ry="28" fill="${c.body}"/>
+    <!-- Head -->
+    <ellipse cx="40" cy="40" rx="28" ry="26" fill="${c.body}"/>
+    <!-- Face patch -->
+    <ellipse cx="40" cy="44" rx="19" ry="17" fill="${c.face}"/>
+    <!-- Hat brim -->
+    <rect x="14" y="18" width="52" height="8" rx="4" fill="${hatColor}"/>
+    <!-- Hat top -->
+    <rect x="22" y="2" width="36" height="20" rx="6" fill="${hatColor}"/>
+    ${type === 'golden' ? '<text x="40" y="17" text-anchor="middle" font-size="12">⭐</text>' : ''}
+    ${type === 'bomb' ? '<text x="40" y="17" text-anchor="middle" font-size="14">💣</text>' : ''}
+    <!-- Eyes -->
+    <circle cx="30" cy="38" r="5" fill="white"/>
+    <circle cx="50" cy="38" r="5" fill="white"/>
+    <circle cx="31" cy="39" r="3" fill="${c.eyes}"/>
+    <circle cx="51" cy="39" r="3" fill="${c.eyes}"/>
+    <circle cx="32" cy="38" r="1" fill="white" opacity="0.8"/>
+    <circle cx="52" cy="38" r="1" fill="white" opacity="0.8"/>
+    <!-- Nose -->
+    <ellipse cx="40" cy="46" rx="5" ry="4" fill="${c.nose}"/>
+    <!-- Mouth -->
+    <path d="M33 52 Q40 58 47 52" stroke="${c.eyes}" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- Paws -->
+    <ellipse cx="16" cy="72" rx="10" ry="8" fill="${c.body}"/>
+    <ellipse cx="64" cy="72" rx="10" ry="8" fill="${c.body}"/>
+    <!-- Claws left -->
+    <path d="M10 76 Q8 80 10 82" stroke="${c.face}" stroke-width="1.5" fill="none"/>
+    <path d="M14 78 Q12 82 14 84" stroke="${c.face}" stroke-width="1.5" fill="none"/>
+    <path d="M18 78 Q16 82 18 84" stroke="${c.face}" stroke-width="1.5" fill="none"/>
+    <!-- Claws right -->
+    <path d="M58 78 Q56 82 58 84" stroke="${c.face}" stroke-width="1.5" fill="none"/>
+    <path d="M62 78 Q60 82 62 84" stroke="${c.face}" stroke-width="1.5" fill="none"/>
+    <path d="M66 76 Q64 80 66 82" stroke="${c.face}" stroke-width="1.5" fill="none"/>
+    <!-- Ear tufts -->
+    <ellipse cx="15" cy="20" rx="7" ry="9" fill="${c.body}" transform="rotate(-15 15 20)"/>
+    <ellipse cx="65" cy="20" rx="7" ry="9" fill="${c.body}" transform="rotate(15 65 20)"/>
+  </svg>`;
+}
+
+// State
+let score = 0;
+let combo = 1;
+let comboTimer = null;
+let timeLeft = GAME_DURATION;
+let gameActive = false;
+let moleTimers = [];
+let countdownInterval = null;
+let highScore = parseInt(localStorage.getItem('whack_hs') || '0');
+
+// Build grid
+const ground = document.getElementById('ground');
+const holes = [];
+
+for (let i = 0; i < GRID_SIZE; i++) {
+  const wrap = document.createElement('div');
+  wrap.className = 'hole-wrap';
+  wrap.dataset.index = i;
+
+  wrap.innerHTML = `
+    <div class="dirt-pile"></div>
+    <div class="hole-shadow"></div>
+    <div class="hole-clip">
+      <div class="mole-container">
+        <svg class="mole-svg" viewBox="0 0 80 90" xmlns="http://www.w3.org/2000/svg">${moleSVG('normal').replace(/<svg[^>]*>/,'').replace('</svg>','')}</svg>
+      </div>
+    </div>
+    <div class="hole-rim"></div>
+  `;
+
+  wrap.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    onHoleHit(i);
+  });
+
+  ground.appendChild(wrap);
+  holes.push(wrap);
+}
+
+// Add random grass blades for decoration
+for (let i = 0; i < 20; i++) {
+  const blade = document.createElement('div');
+  blade.className = 'grass-blade';
+  blade.style.left = Math.random() * 100 + '%';
+  blade.style.height = (12 + Math.random() * 14) + 'px';
+  blade.style.transform = `rotate(${(Math.random()-0.5)*30}deg)`;
+  blade.style.opacity = (0.5 + Math.random()*0.5).toString();
+  ground.appendChild(blade);
+}
+
+function setMoleType(index, type) {
+  const svg = holes[index].querySelector('.hole-clip .mole-svg');
+  svg.innerHTML = moleSVG(type).replace(/<svg[^>]*>/,'').replace('</svg>','');
+}
+
+// Mole logic
+function showMole(index) {
+  if (!gameActive) return;
+  const hole = holes[index];
+  if (hole.classList.contains('active') || hole.classList.contains('whacked')) return;
+
+  // Randomly assign type
+  const rand = Math.random();
+  const type = rand < 0.12 ? 'golden' : rand < 0.22 ? 'bomb' : 'normal';
+  hole.dataset.type = type;
+  setMoleType(index, type);
+
+  hole.classList.remove('hiding');
+  hole.classList.add('active');
+
+  // How long it stays up
+  const upTime = type === 'golden' ? 900 : type === 'bomb' ? 1800 : 800 + Math.random() * 700;
+
+  const t = setTimeout(() => {
+    if (hole.classList.contains('active') && !hole.classList.contains('whacked')) {
+      hideMole(index);
+      // Miss breaks combo
+      if (type !== 'bomb') {
+        combo = 1;
+        document.getElementById('combo-val').textContent = 'x1';
+      }
+    }
+  }, upTime);
+
+  moleTimers[index] = t;
+}
+
+function hideMole(index) {
+  const hole = holes[index];
+  hole.classList.remove('active');
+  hole.classList.add('hiding');
+  setTimeout(() => hole.classList.remove('hiding'), 300);
+}
+
+function onHoleHit(index) {
+  if (!gameActive) return;
+  const hole = holes[index];
+  if (!hole.classList.contains('active') || hole.classList.contains('whacked')) return;
+
+  clearTimeout(moleTimers[index]);
+  const type = hole.dataset.type || 'normal';
+
+  if (type === 'bomb') {
+    // Bomb penalty
+    score = Math.max(0, score - 15);
+    combo = 1;
+    document.getElementById('combo-val').textContent = 'x1';
+    document.getElementById('score-val').textContent = score;
+    showHitNum(index, '-15', '#ff4444');
+    spawnStars(index, '💥', 4);
+    screenFlash('#ff0000');
+    hideMole(index);
+    return;
+  }
+
+  // Normal / golden hit
+  hole.classList.add('whacked');
+  const pts = type === 'golden' ? 50 * combo : 10 * combo;
+  score += pts;
+  document.getElementById('score-val').textContent = score;
+
+  // Combo
+  clearTimeout(comboTimer);
+  combo = Math.min(combo + 1, 8);
+  document.getElementById('combo-val').textContent = 'x' + combo;
+  if (combo >= 3) showComboBanner();
+  comboTimer = setTimeout(() => {
+    combo = 1;
+    document.getElementById('combo-val').textContent = 'x1';
+  }, 2500);
+
+  showHitNum(index, '+' + pts, type === 'golden' ? '#FFD700' : '#7fffd4');
+  spawnStars(index, type === 'golden' ? '⭐' : '✨', 5);
+  screenFlash();
+
+  setTimeout(() => {
+    hole.classList.remove('whacked', 'active');
+    hole.classList.add('hiding');
+    setTimeout(() => hole.classList.remove('hiding'), 300);
+  }, 280);
+}
+
+function showHitNum(index, text, color = '#FFD700') {
+  const hole = holes[index];
+  const num = document.createElement('div');
+  num.className = 'hit-num';
+  num.textContent = text;
+  num.style.color = color;
+  hole.appendChild(num);
+  setTimeout(() => num.remove(), 700);
+}
+
+function spawnStars(index, emoji, count) {
+  const hole = holes[index];
+  const rect = hole.getBoundingClientRect();
+  for (let i = 0; i < count; i++) {
+    const s = document.createElement('div');
+    s.className = 'star-burst';
+    s.textContent = emoji;
+    const angle = (i / count) * Math.PI * 2;
+    const dist = 40 + Math.random() * 30;
+    s.style.setProperty('--dx', Math.cos(angle)*dist + 'px');
+    s.style.setProperty('--dy', Math.sin(angle)*dist + 'px');
+    s.style.left = (rect.left + rect.width/2 - 12) + 'px';
+    s.style.top = (rect.top + rect.height/2 - 12) + 'px';
+    s.style.animationDelay = (i * 0.04) + 's';
+    document.body.appendChild(s);
+    setTimeout(() => s.remove(), 700);
+  }
+}
+
+function screenFlash(color = '#FFD700') {
+  const f = document.getElementById('flash');
+  f.style.background = color;
+  f.classList.remove('hit');
+  void f.offsetWidth;
+  f.classList.add('hit');
+}
+
+function showComboBanner() {
+  const b = document.getElementById('combo-banner');
+  const msgs = ['NICE!', 'COMBO!', 'SICK!', 'AMAZING!', 'UNSTOPPABLE!', 'LEGENDARY!'];
+  b.textContent = combo >= 7 ? msgs[5] : msgs[Math.min(combo - 3, 4)];
+  b.classList.remove('show');
+  void b.offsetWidth;
+  b.classList.add('show');
+}
+
+// Mole spawner
+let spawnInterval;
+function startSpawning() {
+  const spawn = () => {
+    if (!gameActive) return;
+    const available = holes
+      .map((h, i) => ({ h, i }))
+      .filter(({ h }) => !h.classList.contains('active') && !h.classList.contains('whacked'));
+    if (available.length > 0) {
+      const maxActive = timeLeft > 20 ? 2 : timeLeft > 10 ? 3 : 4;
+      const currentActive = holes.filter(h => h.classList.contains('active')).length;
+      if (currentActive < maxActive) {
+        const pick = available[Math.floor(Math.random() * available.length)];
+        showMole(pick.i);
+      }
+    }
+    const delay = Math.max(350, 900 - (GAME_DURATION - timeLeft) * 20);
+    spawnInterval = setTimeout(spawn, delay);
+  };
+  spawn();
+}
+
+function startGame() {
+  score = 0; combo = 1; timeLeft = GAME_DURATION;
+  gameActive = true;
+  document.getElementById('score-val').textContent = '0';
+  document.getElementById('timer-val').textContent = GAME_DURATION;
+  document.getElementById('timer-val').classList.remove('panic');
+  document.getElementById('combo-val').textContent = 'x1';
+  document.getElementById('overlay').style.display = 'none';
+
+  // Clear holes
+  holes.forEach(h => {
+    h.classList.remove('active', 'hiding', 'whacked');
+    clearTimeout(moleTimers[h.dataset.index]);
+  });
+
+  startSpawning();
+
+  countdownInterval = setInterval(() => {
+    timeLeft--;
+    const tv = document.getElementById('timer-val');
+    tv.textContent = timeLeft;
+    if (timeLeft <= 5) tv.classList.add('panic');
+    if (timeLeft <= 0) endGame();
+  }, 1000);
+}
+
+function endGame() {
+  gameActive = false;
+  clearTimeout(spawnInterval);
+  clearInterval(countdownInterval);
+  moleTimers.forEach(clearTimeout);
+  holes.forEach(h => h.classList.remove('active', 'whacked', 'hiding'));
+
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem('whack_hs', highScore);
+  }
+
+  const overlay = document.getElementById('overlay');
+  overlay.style.display = 'flex';
+  overlay.innerHTML = `
+    <div class="mole-deco">🏆</div>
+    <h1>DONE!</h1>
+    <div id="end-score">
+      Your Score<span>${score}</span>
+      Best: ${highScore}
+    </div>
+    <button class="big-btn" id="start-btn">PLAY AGAIN!</button>
+  `;
+  document.getElementById('start-btn').addEventListener('click', startGame);
+}
+
+document.getElementById('start-btn').addEventListener('click', startGame);
+
+// Prevent scroll bounce on iOS
+document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+</script>
+</body>
+</html>
