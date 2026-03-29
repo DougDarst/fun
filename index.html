@@ -2,12 +2,304 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Home</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ellie's Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(160deg, #ffe0f7 0%, #fff4b2 40%, #d0f0ff 80%, #e8d5ff 100%);
+      font-family: 'Nunito', sans-serif;
+      overflow-x: hidden;
+      cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ctext y='28' font-size='28'%3E⭐%3C/text%3E%3C/svg%3E") 16 16, auto;
+    }
+
+    /* Floating background shapes */
+    .bg-shapes {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .shape {
+      position: absolute;
+      font-size: 2.5rem;
+      animation: floatAround linear infinite;
+      opacity: 0.55;
+    }
+
+    @keyframes floatAround {
+      0%   { transform: translateY(110vh) rotate(0deg); opacity: 0; }
+      10%  { opacity: 0.55; }
+      90%  { opacity: 0.55; }
+      100% { transform: translateY(-15vh) rotate(360deg); opacity: 0; }
+    }
+
+    /* Rainbow bar at top */
+    .rainbow-bar {
+      height: 14px;
+      width: 100%;
+      background: linear-gradient(90deg,
+        #ff4e4e, #ff9e2c, #ffe34e, #4ee84e, #4eb6ff, #9b4eff, #ff4eba);
+      background-size: 200% 100%;
+      animation: rainbowShift 3s linear infinite;
+      position: relative;
+      z-index: 10;
+    }
+
+    @keyframes rainbowShift {
+      0%   { background-position: 0% 0%; }
+      100% { background-position: 200% 0%; }
+    }
+
+    /* Main content */
+    .container {
+      position: relative;
+      z-index: 5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 30px 20px 60px;
+    }
+
+    /* Unicorn + Title header */
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+      animation: popIn 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+    }
+
+    @keyframes popIn {
+      0%   { transform: scale(0) rotate(-10deg); opacity: 0; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    .unicorn-emoji {
+      font-size: 7rem;
+      display: block;
+      animation: unicornBob 2.5s ease-in-out infinite;
+      filter: drop-shadow(0 6px 16px rgba(200,100,255,0.4));
+    }
+
+    @keyframes unicornBob {
+      0%, 100% { transform: translateY(0) rotate(-3deg); }
+      50%       { transform: translateY(-18px) rotate(3deg); }
+    }
+
+    h1 {
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(3rem, 10vw, 5.5rem);
+      background: linear-gradient(135deg, #ff6ec7, #ffb347, #ff6ec7, #a78bfa);
+      background-size: 300% 300%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: gradientFlow 4s ease infinite;
+      line-height: 1.1;
+      letter-spacing: 1px;
+    }
+
+    @keyframes gradientFlow {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .subtitle {
+      font-size: 1.4rem;
+      color: #c084fc;
+      margin-top: 8px;
+      letter-spacing: 2px;
+      font-weight: 800;
+    }
+
+    /* Rainbow divider */
+    .rainbow-divider {
+      width: min(500px, 90vw);
+      height: 8px;
+      border-radius: 99px;
+      background: linear-gradient(90deg, #ff4e4e, #ff9e2c, #ffe34e, #4ee84e, #4eb6ff, #9b4eff);
+      margin: 0 auto 40px;
+      animation: popIn 0.9s 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+    }
+
+    /* Game cards grid */
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 24px;
+      width: min(900px, 95vw);
+    }
+
+    .game-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 30px 20px;
+      border-radius: 32px;
+      text-decoration: none;
+      border: 4px solid transparent;
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.9rem;
+      color: white;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.18);
+      min-height: 160px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.13), 0 2px 8px rgba(0,0,0,0.08);
+      transition: transform 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+                  box-shadow 0.18s ease,
+                  filter 0.18s ease;
+      animation: cardSlideIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+      position: relative;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .game-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0.15);
+      border-radius: inherit;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .game-card:hover::before,
+    .game-card:focus::before {
+      opacity: 1;
+    }
+
+    .game-card:hover,
+    .game-card:focus {
+      transform: scale(1.07) translateY(-6px) rotate(-1deg);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.1);
+      filter: brightness(1.08);
+      outline: none;
+    }
+
+    .game-card:active {
+      transform: scale(0.96);
+    }
+
+    .game-card:nth-child(1) { animation-delay: 0.15s; background: linear-gradient(135deg, #f9a8d4, #f472b6, #ec4899); border-color: #fce7f3; }
+    .game-card:nth-child(2) { animation-delay: 0.28s; background: linear-gradient(135deg, #86efac, #4ade80, #16a34a); border-color: #dcfce7; }
+    .game-card:nth-child(3) { animation-delay: 0.41s; background: linear-gradient(135deg, #93c5fd, #60a5fa, #2563eb); border-color: #dbeafe; }
+    .game-card:nth-child(4) { animation-delay: 0.54s; background: linear-gradient(135deg, #fbbf24, #f59e0b, #d97706); border-color: #fef3c7; }
+
+    @keyframes cardSlideIn {
+      0%   { transform: scale(0.6) translateY(40px); opacity: 0; }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
+
+    .card-emoji {
+      font-size: 3.5rem;
+      display: block;
+      filter: drop-shadow(0 3px 6px rgba(0,0,0,0.15));
+      transition: transform 0.3s ease;
+    }
+
+    .game-card:hover .card-emoji {
+      transform: scale(1.2) rotate(10deg);
+    }
+
+    .card-label {
+      line-height: 1.2;
+      text-align: center;
+    }
+
+    .game-card::after {
+      content: '✨';
+      position: absolute;
+      top: 10px;
+      right: 14px;
+      font-size: 1.4rem;
+      animation: sparkleWiggle 2s ease-in-out infinite;
+      opacity: 0.85;
+    }
+
+    @keyframes sparkleWiggle {
+      0%, 100% { transform: rotate(-15deg) scale(1); }
+      50%       { transform: rotate(15deg) scale(1.3); }
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 50px;
+      font-size: 1.1rem;
+      color: #c084fc;
+      font-weight: 800;
+      letter-spacing: 1px;
+      animation: popIn 1s 0.7s both;
+    }
+
+    .star   { animation-duration: 8s; }
+    .heart  { animation-duration: 11s; }
+    .cloud  { animation-duration: 14s; }
+    .flower { animation-duration: 9s; }
+    .rainbow{ animation-duration: 16s; }
+  </style>
 </head>
 <body>
-  <a href="tictactoe.html">Tic Tac Toe</a><br>
-  <a href="whack-a-mole.html">Whack a Mole</a><br>
-  <a href="connect-four.html">Connect Four</a><br>
-  <a href="road-racer.html">Road Racer</a>
+
+  <div class="rainbow-bar"></div>
+
+  <div class="bg-shapes">
+    <span class="shape star"   style="left:5%;  animation-delay:0s;">⭐</span>
+    <span class="shape heart"  style="left:15%; animation-delay:2s;">💖</span>
+    <span class="shape cloud"  style="left:25%; animation-delay:5s;">🌈</span>
+    <span class="shape flower" style="left:38%; animation-delay:1s;">🌸</span>
+    <span class="shape star"   style="left:50%; animation-delay:3.5s;">✨</span>
+    <span class="shape heart"  style="left:62%; animation-delay:7s;">💛</span>
+    <span class="shape cloud"  style="left:73%; animation-delay:4s;">⭐</span>
+    <span class="shape flower" style="left:85%; animation-delay:1.5s;">🦋</span>
+    <span class="shape star"   style="left:93%; animation-delay:6s;">🌟</span>
+    <span class="shape heart"  style="left:45%; animation-delay:9s;">💜</span>
+    <span class="shape cloud"  style="left:8%;  animation-delay:11s;">🌸</span>
+    <span class="shape flower" style="left:70%; animation-delay:12s;">💖</span>
+  </div>
+
+  <div class="container">
+
+    <div class="header">
+      <span class="unicorn-emoji">🦄</span>
+      <h1>Ellie's Games!</h1>
+      <p class="subtitle">✨ Pick a game to play! ✨</p>
+    </div>
+
+    <div class="rainbow-divider"></div>
+
+    <div class="games-grid">
+      <a href="tictactoe.html" class="game-card">
+        <span class="card-emoji">⭕</span>
+        <span class="card-label">Tic Tac Toe</span>
+      </a>
+      <a href="whack-a-mole.html" class="game-card">
+        <span class="card-emoji">🔨</span>
+        <span class="card-label">Whack a Mole</span>
+      </a>
+      <a href="connect-four.html" class="game-card">
+        <span class="card-emoji">🔵</span>
+        <span class="card-label">Connect Four</span>
+      </a>
+      <a href="road-racer.html" class="game-card">
+        <span class="card-emoji">🚗</span>
+        <span class="card-label">Road Racer</span>
+      </a>
+    </div>
+
+    <p class="footer">🌈 Have fun, Ellie! 🌈</p>
+
+  </div>
+
 </body>
 </html>
