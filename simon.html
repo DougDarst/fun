@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🎮 Simon Says — Ellie & Grandpa</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            height: 100vh;
+            height: 100dvh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Rounded, sans-serif;
+            background: linear-gradient(135deg, #1a0040, #0a1560, #2d0060, #0a1560, #1a0040);
+            background-size: 400% 400%;
+            animation: bgShift 12s ease infinite;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            color: white;
+        }
+
+        @keyframes bgShift {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* ── Stars ── */
+        .stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle var(--d) ease-in-out infinite var(--delay);
+            opacity: 0;
+        }
+        @keyframes twinkle {
+            0%, 100% { opacity: 0;   transform: scale(0.4); }
+            50%       { opacity: 0.9; transform: scale(1);   }
+        }
+
+        /* ── Game shell ── */
+        .game {
+            position: relative;
+            z-index: 1;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 14px 14px 22px;
+            gap: 11px;
+            overflow: hidden;
+        }
+
+        /* ── Top bar ── */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        .back-btn {
+            background: rgba(255,255,255,0.12);
+            border: 1.5px solid rgba(255,255,255,0.2);
+            color: white;
+            border-radius: 50px;
+            padding: 8px 14px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            flex-shrink: 0;
+            text-decoration: none;
+            letter-spacing: 0.5px;
+            transition: background 0.2s;
+        }
+        .back-btn:active { background: rgba(255,255,255,0.22); }
+        .top-title {
+            flex: 1;
+            text-align: center;
+            font-size: 1.45rem;
+            font-weight: 900;
+            text-shadow: 0 0 20px rgba(255,200,80,0.8);
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+        .round-badge {
+            flex-shrink: 0;
+            min-width: 74px;
+            text-align: center;
+            background: rgba(255,215,0,0.18);
+            border: 1.5px solid rgba(255,215,0,0.45);
+            border-radius: 50px;
+            padding: 7px 12px;
+            font-size: 0.82rem;
+            font-weight: 800;
+            color: #ffd700;
+            letter-spacing: 0.5px;
+        }
+
+        /* ── Status pill ── */
+        .status {
+            flex-shrink: 0;
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: 700;
+            background: rgba(255,255,255,0.09);
+            border: 1.5px solid rgba(255,255,255,0.14);
+            border-radius: 50px;
+            padding: 11px 20px;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            letter-spacing: 0.3px;
+            transition: background 0.3s, border-color 0.3s;
+        }
+        .status.highlight {
+            background: rgba(255,215,0,0.2);
+            border-color: rgba(255,215,0,0.45);
+        }
+        .status.oops {
+            background: rgba(255,80,80,0.18);
+            border-color: rgba(255,120,120,0.4);
+        }
+        .status-pulse { animation: sPulse 0.22s ease-out; }
+        @keyframes sPulse {
+            0%   { transform: scale(0.96); opacity: 0.7; }
+            100% { transform: scale(1);    opacity: 1;   }
+        }
+
+        /* ── 2×2 Button grid ── */
+        .buttons-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 12px;
+            min-height: 0;
+        }
+
+        /* ── Simon button ── */
+        .simon-btn {
+            border-radius: 28px;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            position: relative;
+            overflow: hidden;
+            /* Gloss effect */
+            box-shadow:
+                inset 0 7px 22px rgba(255,255,255,0.22),
+                inset 0 -7px 18px rgba(0,0,0,0.25),
+                0 12px 40px rgba(0,0,0,0.55);
+            transition: filter 0.07s ease, transform 0.07s ease;
+        }
+
+        /* Dim/inactive look when showing sequence */
+        .simon-btn.dimmed {
+            filter: brightness(0.45) saturate(0.7);
+        }
+
+        /* Lit state: during sequence flash OR player tap */
+        .simon-btn.lit {
+            filter: brightness(1.85) saturate(1.15) !important;
+            transform: scale(0.975);
+            box-shadow:
+                inset 0 7px 22px rgba(255,255,255,0.35),
+                inset 0 -7px 18px rgba(0,0,0,0.12),
+                0 0 70px var(--glow),
+                0 12px 40px rgba(0,0,0,0.35);
+        }
+
+        /* Colors */
+        #btn-red    { background: #FF3A30; --glow: rgba(255,58,48,0.75);  }
+        #btn-green  { background: #2ECC40; --glow: rgba(46,204,64,0.75);  }
+        #btn-yellow { background: #FFD300; --glow: rgba(255,211,0,0.85);  }
+        #btn-blue   { background: #0A7AFF; --glow: rgba(10,122,255,0.75); }
+
+        /* Ripple */
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.42);
+            transform: scale(0);
+            animation: rippleOut 0.5s ease-out forwards;
+            pointer-events: none;
+        }
+        @keyframes rippleOut {
+            to { transform: scale(4.5); opacity: 0; }
+        }
+
+        /* ── Unicorn celebration layer ── */
+        .unicorn-layer {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 60;
+            overflow: hidden;
+        }
+        .uni {
+            position: absolute;
+            font-size: var(--sz);
+            bottom: -10%;
+            animation: uniFloat var(--dur) cubic-bezier(0.25,0.46,0.45,0.94) var(--del) forwards;
+            opacity: 0;
+        }
+        @keyframes uniFloat {
+            0%   { transform: translateY(0)     rotate(var(--r1)) scale(0.6); opacity: 0; }
+            12%  { opacity: 1; }
+            85%  { opacity: 1; }
+            100% { transform: translateY(-110vh) rotate(var(--r2)) scale(1.1); opacity: 0; }
+        }
+
+        /* ── Start overlay ── */
+        .start-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(4,0,18,0.88);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
+            z-index: 90;
+            text-align: center;
+            padding: 40px 24px;
+            transition: opacity 0.4s ease;
+        }
+        .start-overlay.gone {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .start-big { font-size: 5rem; animation: startBob 2s ease-in-out infinite; }
+        @keyframes startBob {
+            0%,100% { transform: translateY(0); }
+            50%     { transform: translateY(-10px); }
+        }
+        .start-title {
+            font-size: 2.2rem;
+            font-weight: 900;
+            text-shadow: 0 0 24px rgba(255,200,80,0.85);
+        }
+        .start-desc {
+            font-size: 1rem;
+            color: rgba(255,255,255,0.65);
+            line-height: 1.6;
+            max-width: 280px;
+        }
+        .start-go-btn {
+            background: linear-gradient(135deg, #ffd700, #ff8800);
+            color: #1a0033;
+            border: none;
+            border-radius: 50px;
+            padding: 18px 52px;
+            font-size: 1.3rem;
+            font-weight: 900;
+            cursor: pointer;
+            box-shadow: 0 6px 28px rgba(255,140,0,0.55);
+            letter-spacing: 1px;
+            margin-top: 6px;
+            transition: transform 0.12s;
+        }
+        .start-go-btn:active { transform: scale(0.93); }
+    </style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+<div class="unicorn-layer" id="unicornLayer"></div>
+
+<!-- Start screen (unlocks iOS audio context) -->
+<div class="start-overlay" id="startOverlay">
+    <div class="start-big">🎮</div>
+    <div class="start-title">Simon Says!</div>
+    <div class="start-desc">Watch the colors light up,<br>then tap them in the same order!</div>
+    <button class="start-go-btn" id="startGoBtn">Let's Play! 🦄</button>
+</div>
+
+<!-- Game -->
+<div class="game">
+    <div class="top-bar">
+        <a class="back-btn" href="index.html">← Games</a>
+        <div class="top-title">Simon Says</div>
+        <div class="round-badge" id="roundBadge">Round 1</div>
+    </div>
+
+    <div class="status" id="status">✨ Get ready!</div>
+
+    <div class="buttons-grid">
+        <div class="simon-btn" id="btn-red"    data-i="0"></div>
+        <div class="simon-btn" id="btn-green"  data-i="1"></div>
+        <div class="simon-btn" id="btn-yellow" data-i="2"></div>
+        <div class="simon-btn" id="btn-blue"   data-i="3"></div>
+    </div>
+</div>
+
+<script>
+    /* ── Stars ── */
+    const starsEl = document.getElementById('stars');
+    for (let i = 0; i < 70; i++) {
+        const s  = document.createElement('div');
+        s.className = 'star';
+        const sz = (Math.random() * 2.5 + 0.8).toFixed(1);
+        s.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${(Math.random()*3+2).toFixed(1)}s;--delay:-${(Math.random()*5).toFixed(1)}s`;
+        starsEl.appendChild(s);
+    }
+
+    /* ── Config ── */
+    // Frequencies chosen so each button sounds warm and distinct
+    const BTN_CFG = [
+        { id: 'btn-red',    freq: 261.63 },   // C4  — low, warm
+        { id: 'btn-green',  freq: 329.63 },   // E4  — mid
+        { id: 'btn-yellow', freq: 392.00 },   // G4  — mid-high
+        { id: 'btn-blue',   freq: 523.25 },   // C5  — bright high
+    ];
+    const btns = BTN_CFG.map(c => document.getElementById(c.id));
+
+    /* ── State ── */
+    // IDLE | SHOWING | PLAYER | OOPS | WIN
+    let state       = 'IDLE';
+    let sequence    = [];
+    let inputIndex  = 0;
+    let busy        = false;   // blocks rapid double-taps
+
+    /* ── Audio ── */
+    let actx = null;
+    function ctx() {
+        if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+        if (actx.state === 'suspended') actx.resume();
+        return actx;
+    }
+
+    function playTone(freq, dur = 0.55) {
+        const c = ctx(), now = c.currentTime;
+        const osc = c.createOscillator(), env = c.createGain();
+        osc.connect(env); env.connect(c.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        env.gain.setValueAtTime(0.55, now);
+        env.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+        osc.start(now); osc.stop(now + dur + 0.05);
+    }
+
+    function playOops() {
+        const c = ctx(), now = c.currentTime;
+        // Sad descending glide
+        const osc = c.createOscillator(), env = c.createGain();
+        osc.connect(env); env.connect(c.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.exponentialRampToValueAtTime(100, now + 0.75);
+        env.gain.setValueAtTime(0.45, now);
+        env.gain.exponentialRampToValueAtTime(0.0001, now + 0.9);
+        osc.start(now); osc.stop(now + 0.95);
+    }
+
+    function playFanfare() {
+        // Quick ascending arpeggio — C E G C
+        [261.63, 329.63, 392.00, 523.25].forEach((f, i) => {
+            const c = ctx(), t = c.currentTime + i * 0.12;
+            const osc = c.createOscillator(), env = c.createGain();
+            osc.connect(env); env.connect(c.destination);
+            osc.type = 'sine';
+            osc.frequency.value = f;
+            env.gain.setValueAtTime(0.38, t);
+            env.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+            osc.start(t); osc.stop(t + 0.45);
+        });
+    }
+
+    /* ── Helpers ── */
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+
+    function setStatus(msg, mode = 'normal') {
+        const el = document.getElementById('status');
+        el.textContent = msg;
+        el.classList.remove('highlight', 'oops', 'status-pulse');
+        void el.offsetWidth;
+        if (mode === 'highlight') el.classList.add('highlight');
+        if (mode === 'oops')      el.classList.add('oops');
+        el.classList.add('status-pulse');
+    }
+
+    function setRound(n) {
+        document.getElementById('roundBadge').textContent = `Round ${n}`;
+    }
+
+    /* ── Light up one button ── */
+    function flashBtn(i, ms) {
+        return new Promise(resolve => {
+            btns[i].classList.add('lit');
+            playTone(BTN_CFG[i].freq, ms / 1000);
+            setTimeout(() => { btns[i].classList.remove('lit'); resolve(); }, ms);
+        });
+    }
+
+    /* ── Ripple at tap point ── */
+    function addRipple(btnEl, e) {
+        const r    = btnEl.getBoundingClientRect();
+        const rip  = document.createElement('div');
+        rip.className = 'ripple';
+        const sz   = Math.max(r.width, r.height) * 2.4;
+        rip.style.cssText = `width:${sz}px;height:${sz}px;left:${e.clientX - r.left - sz/2}px;top:${e.clientY - r.top - sz/2}px`;
+        btnEl.appendChild(rip);
+        rip.addEventListener('animationend', () => rip.remove(), { once: true });
+    }
+
+    /* ── Unicorn shower ── */
+    function launchUnicorns() {
+        const layer = document.getElementById('unicornLayer');
+        layer.innerHTML = '';
+        for (let i = 0; i < 18; i++) {
+            const el  = document.createElement('div');
+            el.className = 'uni';
+            el.textContent = '🦄';
+            const sz  = (Math.random() * 1.8 + 1.6).toFixed(1);
+            el.style.cssText = `
+                left:${Math.random() * 88}%;
+                --sz:${sz}rem;
+                --dur:${(Math.random() * 0.7 + 1.1).toFixed(2)}s;
+                --del:${(Math.random() * 0.5).toFixed(2)}s;
+                --r1:${(Math.random() * 20 - 10).toFixed(0)}deg;
+                --r2:${(Math.random() * 30 - 15).toFixed(0)}deg;
+            `;
+            layer.appendChild(el);
+        }
+        setTimeout(() => { layer.innerHTML = ''; }, 2500);
+    }
+
+    /* ── Show the sequence ── */
+    async function showSequence() {
+        state = 'SHOWING';
+        // Dim all buttons while sequence plays
+        btns.forEach(b => b.classList.add('dimmed'));
+        setStatus('👀 Watch carefully…');
+        await wait(700);
+
+        for (const idx of sequence) {
+            btns[idx].classList.remove('dimmed');
+            await flashBtn(idx, 620);
+            btns[idx].classList.add('dimmed');
+            await wait(300);
+        }
+
+        // Restore all buttons for player
+        btns.forEach(b => b.classList.remove('dimmed'));
+        await wait(200);
+        beginPlayerTurn();
+    }
+
+    /* ── Begin player input phase ── */
+    function beginPlayerTurn() {
+        state      = 'PLAYER';
+        inputIndex = 0;
+        busy       = false;
+        setStatus('🎯 Your turn! Tap the colors!');
+    }
+
+    /* ── Handle a player tap ── */
+    async function onTap(i, e) {
+        if (state !== 'PLAYER' || busy) return;
+        busy = true;
+
+        // Immediate visual + audio feedback
+        addRipple(btns[i], e);
+        btns[i].classList.add('lit');
+        playTone(BTN_CFG[i].freq, 0.28);
+        setTimeout(() => btns[i].classList.remove('lit'), 280);
+
+        if (i !== sequence[inputIndex]) {
+            /* ── WRONG ── */
+            state = 'OOPS';
+            await wait(250);
+            playOops();
+            setStatus('😊 Oops! Try again!', 'oops');
+            await wait(2000);
+            startRound1();
+            return;
+        }
+
+        inputIndex++;
+
+        if (inputIndex < sequence.length) {
+            /* Correct tap but more to go */
+            busy = false;
+            return;
+        }
+
+        /* ── CORRECT — completed the round ── */
+        state = 'WIN';
+        await wait(200);
+        playFanfare();
+        setStatus(`🌟 Amazing! Round ${sequence.length} complete!`, 'highlight');
+        launchUnicorns();
+        await wait(2000);
+
+        // Add next step and go again
+        sequence.push(Math.floor(Math.random() * 4));
+        setRound(sequence.length);
+        await showSequence();
+    }
+
+    /* ── Start from round 1 ── */
+    function startRound1() {
+        sequence = [Math.floor(Math.random() * 4)];
+        inputIndex = 0;
+        setRound(1);
+        showSequence();
+    }
+
+    /* ── Wire up button taps ── */
+    btns.forEach((btn, i) => {
+        btn.addEventListener('pointerdown', e => onTap(i, e));
+    });
+
+    /* ── Start overlay: unlocks AudioContext on iOS ── */
+    document.getElementById('startGoBtn').addEventListener('pointerdown', () => {
+        // Touch is the required user gesture for AudioContext on iOS
+        ctx(); // initialize now so first tone plays cleanly
+        const overlay = document.getElementById('startOverlay');
+        overlay.classList.add('gone');
+        setTimeout(() => overlay.remove(), 450);
+        startRound1();
+    });
+</script>
+</body>
+</html>

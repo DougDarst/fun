@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🦄 Ellie's Games 🌈</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            min-height: 100vh;
+            min-height: 100dvh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Rounded, sans-serif;
+            background: linear-gradient(135deg, #ff9de2, #ffcb77, #b5ffe1, #92daf8, #dab8ff, #ff9de2);
+            background-size: 400% 400%;
+            animation: rainbowBg 10s ease infinite;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 32px 16px 48px;
+            overflow-x: hidden;
+        }
+
+        @keyframes rainbowBg {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* ── Floating background emojis ── */
+        .floaters {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+        .floater {
+            position: absolute;
+            bottom: -60px;
+            font-size: var(--sz);
+            animation: floatUp var(--dur) linear var(--delay) infinite;
+            opacity: 0;
+        }
+        @keyframes floatUp {
+            0%   { transform: translateY(0)      rotate(0deg);   opacity: 0;   }
+            10%  { opacity: 0.65; }
+            90%  { opacity: 0.45; }
+            100% { transform: translateY(-110vh) rotate(360deg); opacity: 0;   }
+        }
+
+        /* ── Main content ── */
+        .container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 480px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 28px;
+        }
+
+        /* ── Header ── */
+        .header {
+            text-align: center;
+        }
+
+        .title-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 6px;
+        }
+
+        .crown { font-size: 2.8rem; animation: wobble 2.5s ease-in-out infinite; }
+        @keyframes wobble {
+            0%, 100% { transform: rotate(-8deg) scale(1);    }
+            50%       { transform: rotate(8deg)  scale(1.12); }
+        }
+
+        h1 {
+            font-size: 2.8rem;
+            font-weight: 900;
+            background: linear-gradient(90deg, #d400ff, #ff0080, #ff6200, #ffd700, #00c47a, #0088ff, #d400ff);
+            background-size: 300% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: rainbowText 5s linear infinite;
+            line-height: 1;
+            letter-spacing: -0.5px;
+        }
+        @keyframes rainbowText {
+            0%   { background-position: 0% center; }
+            100% { background-position: 300% center; }
+        }
+
+        .tagline {
+            font-size: 1rem;
+            color: rgba(80, 0, 120, 0.7);
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* ── Section label ── */
+        .section-label {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 800;
+            font-size: 0.85rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(80, 0, 120, 0.6);
+        }
+        .section-label::before,
+        .section-label::after {
+            content: '';
+            flex: 1;
+            height: 2px;
+            background: rgba(80, 0, 120, 0.18);
+            border-radius: 2px;
+        }
+
+        /* ── Games grid ── */
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            width: 100%;
+        }
+
+        /* ── Game card ── */
+        .game-card {
+            background: rgba(255, 255, 255, 0.72);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border-radius: 24px;
+            padding: 22px 14px 18px;
+            text-align: center;
+            border: 2.5px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 8px 30px rgba(180, 0, 255, 0.12), 0 2px 8px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.22s cubic-bezier(0.34, 1.5, 0.64, 1), box-shadow 0.22s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .game-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 22px;
+            background: linear-gradient(135deg, var(--c1), var(--c2));
+            opacity: 0.08;
+            transition: opacity 0.2s;
+        }
+
+        .game-card:active {
+            transform: scale(0.95);
+            box-shadow: 0 4px 14px rgba(180,0,255,0.15);
+        }
+
+        /* Desktop hover */
+        @media (hover: hover) {
+            .game-card:hover {
+                transform: translateY(-6px) scale(1.03);
+                box-shadow: 0 18px 40px rgba(180,0,255,0.22), 0 4px 12px rgba(0,0,0,0.1);
+            }
+            .game-card:hover::before { opacity: 0.14; }
+        }
+
+        .game-icon {
+            font-size: 3.2rem;
+            line-height: 1;
+            animation: iconBob 3s ease-in-out infinite var(--bob-delay, 0s);
+        }
+        @keyframes iconBob {
+            0%, 100% { transform: translateY(0);    }
+            50%       { transform: translateY(-6px); }
+        }
+
+        .game-name {
+            font-size: 0.95rem;
+            font-weight: 900;
+            color: #3a006f;
+            letter-spacing: 0.3px;
+            line-height: 1.2;
+        }
+
+        .game-desc {
+            font-size: 0.75rem;
+            color: rgba(80,0,120,0.6);
+            font-weight: 500;
+            line-height: 1.4;
+        }
+
+        .play-btn {
+            margin-top: 4px;
+            background: linear-gradient(135deg, var(--c1), var(--c2));
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 8px 20px;
+            font-size: 0.82rem;
+            font-weight: 800;
+            cursor: pointer;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+            text-transform: uppercase;
+            pointer-events: none;
+        }
+
+        /* ── Coming soon card ── */
+        .coming-soon-card {
+            background: rgba(255,255,255,0.38);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 24px;
+            padding: 22px 14px 18px;
+            text-align: center;
+            border: 2.5px dashed rgba(180,0,255,0.22);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .coming-icon {
+            font-size: 2.4rem;
+            opacity: 0.55;
+            animation: spin 6s linear infinite var(--spin-delay, 0s);
+        }
+        @keyframes spin {
+            0%   { transform: rotate(0deg);   }
+            100% { transform: rotate(360deg); }
+        }
+
+        .coming-name {
+            font-size: 0.9rem;
+            font-weight: 800;
+            color: rgba(80,0,120,0.4);
+        }
+
+        .coming-badge {
+            font-size: 0.68rem;
+            font-weight: 800;
+            background: rgba(180,0,255,0.12);
+            color: rgba(120,0,180,0.7);
+            border-radius: 50px;
+            padding: 4px 12px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        /* ── Footer ── */
+        .footer {
+            font-size: 0.78rem;
+            color: rgba(80,0,120,0.45);
+            text-align: center;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Floating background emojis -->
+<div class="floaters" id="floaters"></div>
+
+<div class="container">
+
+    <!-- Header -->
+    <div class="header">
+        <div class="title-row">
+            <span class="crown">🦄</span>
+            <h1>Ellie's Games</h1>
+            <span class="crown">🌈</span>
+        </div>
+        <div class="tagline">✨ Pick a game and play! ✨</div>
+    </div>
+
+    <!-- Games -->
+    <div class="section-label">🎮 Games 🎮</div>
+
+    <div class="games-grid">
+
+        <!-- Tic-Tac-Toe -->
+        <a class="game-card" href="tictactoe_v2.html"
+           style="--c1:#d400ff;--c2:#7c00ff">
+            <div class="game-icon" style="--bob-delay:0s">🦄</div>
+            <div class="game-name">Tic&#8209;Tac&#8209;Toe</div>
+            <div class="game-desc">Unicorn vs Dragon! Play with Grandpa</div>
+            <div class="play-btn">▶ Play!</div>
+        </a>
+
+        <!-- Emoji Match -->
+        <a class="game-card" href="matching.html"
+           style="--c1:#ff6200;--c2:#d400ff">
+            <div class="game-icon" style="--bob-delay:0.4s">🌟</div>
+            <div class="game-name">Emoji Match</div>
+            <div class="game-desc">Find the pairs! Memory fun for two</div>
+            <div class="play-btn">▶ Play!</div>
+        </a>
+
+        <!-- Music Bars -->
+        <a class="game-card" href="music.html"
+           style="--c1:#007AFF;--c2:#34C759">
+            <div class="game-icon" style="--bob-delay:0.8s">🎵</div>
+            <div class="game-name">Music Bars</div>
+            <div class="game-desc">Tap the bars to play notes! Turn sideways to play</div>
+            <div class="play-btn">▶ Play!</div>
+        </a>
+
+        <!-- Simon Says -->
+        <a class="game-card" href="simon.html"
+           style="--c1:#FF3A30;--c2:#0A7AFF">
+            <div class="game-icon" style="--bob-delay:1.2s">🎮</div>
+            <div class="game-name">Simon Says</div>
+            <div class="game-desc">Copy the colors! How long can you go?</div>
+            <div class="play-btn">▶ Play!</div>
+        </a>
+
+    </div>
+
+    <div class="footer">🌟 More magic coming soon! 🌟</div>
+
+</div>
+
+<script>
+    /* Floating background emojis */
+    const symbols = ['🦄','🌈','⭐','🌸','💫','🦋','✨','🍭','🌟','💖','🎀','🌺'];
+    const wrap = document.getElementById('floaters');
+    symbols.forEach((s, i) => {
+        const el = document.createElement('div');
+        el.className = 'floater';
+        el.textContent = s;
+        const sz = (Math.random() * 1.6 + 1.2).toFixed(1);
+        el.style.cssText = `
+            left: ${(i / symbols.length * 100 + Math.random() * 6).toFixed(1)}%;
+            --sz: ${sz}rem;
+            --dur: ${(Math.random() * 8 + 9).toFixed(1)}s;
+            --delay: -${(Math.random() * 14).toFixed(1)}s;
+        `;
+        wrap.appendChild(el);
+    });
+</script>
+</body>
+</html>

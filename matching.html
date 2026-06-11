@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🌟 Emoji Match — Ellie & Grandpa</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            min-height: 100vh;
+            min-height: 100dvh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Rounded, sans-serif;
+            background: linear-gradient(135deg, #1a0040, #0a1560, #2d0060, #0a1560, #1a0040);
+            background-size: 400% 400%;
+            animation: bgShift 12s ease infinite;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 14px 14px 20px;
+            overflow-x: hidden;
+            color: white;
+        }
+
+        @keyframes bgShift {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* ── Stars ── */
+        .stars {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle var(--d) ease-in-out infinite var(--delay);
+            opacity: 0;
+        }
+        @keyframes twinkle {
+            0%, 100% { opacity: 0;   transform: scale(0.4); }
+            50%       { opacity: 0.9; transform: scale(1);   }
+        }
+
+        /* ── Layout ── */
+        .game {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 420px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* ── Top bar: back + title ── */
+        .top-bar {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .back-btn {
+            background: rgba(255,255,255,0.12);
+            border: 1.5px solid rgba(255,255,255,0.2);
+            color: white;
+            border-radius: 50px;
+            padding: 8px 14px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            flex-shrink: 0;
+            text-decoration: none;
+            transition: background 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .back-btn:active { background: rgba(255,255,255,0.22); }
+        h1 {
+            flex: 1;
+            text-align: center;
+            font-size: 1.45rem;
+            font-weight: 900;
+            text-shadow: 0 0 20px rgba(255,200,80,0.8);
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+        /* invisible spacer to balance the back button */
+        .top-spacer {
+            flex-shrink: 0;
+            width: 74px;
+        }
+
+        /* ── Scoreboard ── */
+        .scoreboard {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+        .player-card {
+            flex: 1;
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 2px solid rgba(255,255,255,0.15);
+            border-radius: 20px;
+            padding: 10px 8px;
+            text-align: center;
+            transition: all 0.35s cubic-bezier(0.34, 1.4, 0.64, 1);
+        }
+        .player-card.active {
+            background: rgba(255,210,60,0.22);
+            border-color: #ffd700;
+            box-shadow: 0 0 22px rgba(255,215,0,0.4), inset 0 0 14px rgba(255,215,0,0.08);
+            transform: scale(1.05);
+        }
+        .player-emoji-big  { font-size: 2rem;   line-height: 1; margin-bottom: 2px; }
+        .player-name-label { font-size: 0.85rem; font-weight: 700; color: rgba(255,255,255,0.88); }
+        .player-score      { font-size: 1.9rem;  font-weight: 900; color: #ffd700;
+                             text-shadow: 0 0 10px rgba(255,215,0,0.55); line-height: 1.1; }
+        .score-label       { font-size: 0.62rem; color: rgba(255,255,255,0.4);
+                             letter-spacing: 2px; text-transform: uppercase; }
+
+        /* ── Turn indicator ── */
+        .turn-indicator {
+            width: 100%;
+            background: rgba(255,255,255,0.1);
+            border: 1.5px solid rgba(255,255,255,0.2);
+            border-radius: 50px;
+            padding: 10px 20px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            text-align: center;
+            min-height: 46px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            letter-spacing: 0.4px;
+            transition: background 0.3s;
+        }
+        .turn-indicator.matched-flash {
+            background: rgba(255,215,0,0.2);
+            border-color: rgba(255,215,0,0.5);
+        }
+
+        /* ── Card grid ── */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            width: 100%;
+        }
+
+        /* ── Card ── */
+        .card {
+            aspect-ratio: 1;
+            cursor: pointer;
+            perspective: 700px;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .card-inner {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.42s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card.flipped  .card-inner,
+        .card.matched  .card-inner { transform: rotateY(180deg); }
+
+        .card-cover,
+        .card-face {
+            position: absolute;
+            inset: 0;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+
+        /* Card back (face-down) */
+        .card-cover {
+            background: linear-gradient(135deg, #5000cc, #c000aa);
+            border: 2px solid rgba(255,255,255,0.18);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.35), inset 0 1px 2px rgba(255,255,255,0.18);
+            font-size: 1.6rem;
+        }
+        .card:not(.flipped):not(.matched):active .card-cover {
+            background: linear-gradient(135deg, #6a10e0, #d820c0);
+        }
+
+        /* Card front (emoji side) */
+        .card-face {
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.15);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+            transform: rotateY(180deg);
+            font-size: 2.4rem;
+        }
+
+        /* Matched cards: gold glow */
+        .card.matched .card-face {
+            background: rgba(255,215,0,0.22);
+            border-color: #ffd700;
+            box-shadow: 0 0 18px rgba(255,215,0,0.55), 0 4px 12px rgba(0,0,0,0.25);
+            animation: matchPulse 0.5s cubic-bezier(0.34, 1.6, 0.64, 1);
+        }
+        @keyframes matchPulse {
+            0%   { transform: rotateY(180deg) scale(0.88); }
+            100% { transform: rotateY(180deg) scale(1);    }
+        }
+
+        /* ── New game button ── */
+        .new-game-btn {
+            background: rgba(255,255,255,0.12);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.28);
+            border-radius: 50px;
+            padding: 11px 32px;
+            font-size: 0.95rem;
+            font-weight: 800;
+            cursor: pointer;
+            letter-spacing: 1.5px;
+            transition: all 0.2s;
+        }
+        .new-game-btn:active {
+            transform: scale(0.94);
+            background: rgba(255,255,255,0.22);
+        }
+
+        /* ── Result overlay ── */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(5,0,20,0.80);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+        .overlay.show { opacity: 1; pointer-events: all; }
+
+        .result-card {
+            background: linear-gradient(145deg, rgba(50,0,90,0.97), rgba(10,15,80,0.97));
+            border: 2.5px solid rgba(255,215,0,0.55);
+            border-radius: 30px;
+            padding: 36px 28px 30px;
+            text-align: center;
+            max-width: 320px;
+            width: 88%;
+            box-shadow: 0 0 60px rgba(255,215,0,0.2), 0 24px 60px rgba(0,0,0,0.6);
+            animation: cardIn 0.5s cubic-bezier(0.34, 1.5, 0.64, 1);
+        }
+        @keyframes cardIn {
+            from { transform: scale(0.55) translateY(50px); opacity: 0; }
+            to   { transform: scale(1)    translateY(0);    opacity: 1; }
+        }
+        .result-big-emoji {
+            font-size: 5rem;
+            display: block;
+            margin-bottom: 8px;
+            animation: bounceIn 0.55s cubic-bezier(0.34, 1.6, 0.64, 1);
+        }
+        @keyframes bounceIn {
+            from { transform: scale(0.3) rotate(-20deg); }
+            to   { transform: scale(1)   rotate(0deg);   }
+        }
+        .result-title {
+            font-size: 2rem;
+            font-weight: 900;
+            color: #ffd700;
+            text-shadow: 0 0 20px rgba(255,215,0,0.7);
+            margin-bottom: 6px;
+        }
+        .result-scores {
+            font-size: 1rem;
+            color: rgba(255,255,255,0.75);
+            margin-bottom: 6px;
+            line-height: 1.7;
+        }
+        .result-msg {
+            font-size: 0.95rem;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 26px;
+        }
+        .play-again-btn {
+            background: linear-gradient(135deg, #ffd700, #ff8800);
+            color: #1a0033;
+            border: none;
+            border-radius: 50px;
+            padding: 16px 40px;
+            font-size: 1.15rem;
+            font-weight: 900;
+            cursor: pointer;
+            box-shadow: 0 6px 24px rgba(255,140,0,0.5);
+            letter-spacing: 1px;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .play-again-btn:active {
+            transform: scale(0.93);
+            box-shadow: 0 3px 12px rgba(255,140,0,0.35);
+        }
+
+        /* ── Confetti ── */
+        .confetti-wrap {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 99;
+            overflow: hidden;
+        }
+        .cp {
+            position: absolute;
+            top: -14px;
+            animation: fall var(--fd) ease-in var(--del) forwards;
+        }
+        @keyframes fall {
+            0%   { transform: translateY(0)     rotate(0deg);   opacity: 1; }
+            100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+<div class="confetti-wrap" id="confetti"></div>
+
+<!-- Result overlay -->
+<div class="overlay" id="overlay">
+    <div class="result-card">
+        <span class="result-big-emoji" id="rEmoji">🏆</span>
+        <div class="result-title"  id="rTitle">Winner!</div>
+        <div class="result-scores" id="rScores"></div>
+        <div class="result-msg"    id="rMsg"></div>
+        <button class="play-again-btn" onclick="newGame()">Play Again! 🎮</button>
+    </div>
+</div>
+
+<div class="game">
+
+    <!-- Top bar -->
+    <div class="top-bar">
+        <a class="back-btn" href="index.html">← Games</a>
+        <h1>🌟 Emoji Match</h1>
+        <div class="top-spacer"></div>
+    </div>
+
+    <!-- Scores -->
+    <div class="scoreboard">
+        <div class="player-card" id="cardEllie">
+            <div class="player-emoji-big">🦄</div>
+            <div class="player-name-label">Ellie</div>
+            <div class="player-score" id="scoreEllie">0</div>
+            <div class="score-label">matches</div>
+        </div>
+        <div class="player-card" id="cardGrandpa">
+            <div class="player-emoji-big">🐉</div>
+            <div class="player-name-label">Grandpa</div>
+            <div class="player-score" id="scoreGrandpa">0</div>
+            <div class="score-label">matches</div>
+        </div>
+    </div>
+
+    <!-- Turn indicator -->
+    <div class="turn-indicator" id="turnIndicator">✨ Loading…</div>
+
+    <!-- Card grid -->
+    <div class="grid" id="grid"></div>
+
+    <!-- New game -->
+    <button class="new-game-btn" onclick="newGame()">🔄 New Game</button>
+
+</div>
+
+<script>
+    /* ── Stars ── */
+    const starsEl = document.getElementById('stars');
+    for (let i = 0; i < 70; i++) {
+        const s = document.createElement('div');
+        s.className = 'star';
+        const sz = (Math.random() * 2.5 + 0.8).toFixed(1);
+        s.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${(Math.random()*3+2).toFixed(1)}s;--delay:-${(Math.random()*5).toFixed(1)}s`;
+        starsEl.appendChild(s);
+    }
+
+    /* ── Constants ── */
+    const ELLIE   = { name: 'Ellie',   emoji: '🦄', id: 'Ellie'   };
+    const GRANDPA = { name: 'Grandpa', emoji: '🐉', id: 'Grandpa' };
+    // 8 pairs = 16 cards — fits a 4×4 grid perfectly on iPhone
+    const EMOJI_SET = ['🦄','🌈','⭐','🌸','🦋','🐠','🍭','🎀'];
+
+    /* ── State ── */
+    let board    = [];   // { emoji, el }
+    let flipped  = [];   // indices of currently face-up unmatched cards
+    let canFlip  = true;
+    let matched  = 0;    // total pairs matched so far
+    let current  = null;
+    const scores = { Ellie: 0, Grandpa: 0 };
+    const wins   = { Ellie: 0, Grandpa: 0 };  // game wins (not per-match)
+
+    /* ── Shuffle ── */
+    function shuffle(arr) {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+    }
+
+    /* ── Build / reset grid ── */
+    const gridEl = document.getElementById('grid');
+
+    function buildGrid(deck) {
+        gridEl.innerHTML = '';
+        board = deck.map((emoji, i) => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div class="card-inner">
+                    <div class="card-cover">✨</div>
+                    <div class="card-face">${emoji}</div>
+                </div>`;
+            card.addEventListener('click', () => handleClick(i));
+            gridEl.appendChild(card);
+            return { emoji, el: card };
+        });
+    }
+
+    /* ── Card click ── */
+    function handleClick(i) {
+        const item = board[i];
+        if (!canFlip)                       return;
+        if (item.el.classList.contains('matched'))  return;
+        if (item.el.classList.contains('flipped'))  return;
+        if (flipped.length >= 2)            return;
+
+        item.el.classList.add('flipped');
+        flipped.push(i);
+
+        if (flipped.length === 2) {
+            canFlip = false;
+            setTimeout(checkMatch, 900);
+        }
+    }
+
+    /* ── Check match ── */
+    function checkMatch() {
+        const [a, b] = flipped;
+        if (board[a].emoji === board[b].emoji) {
+            /* Match! */
+            board[a].el.classList.replace('flipped', 'matched');
+            board[b].el.classList.replace('flipped', 'matched');
+            scores[current.id]++;
+            matched++;
+            updateScores();
+            flashTurn(`🎉 Match! ${current.name} goes again!`, true);
+            flipped  = [];
+            canFlip  = true;
+
+            if (matched === EMOJI_SET.length) {
+                setTimeout(endGame, 600);
+            }
+        } else {
+            /* No match — flip back */
+            board[a].el.classList.remove('flipped');
+            board[b].el.classList.remove('flipped');
+            flipped  = [];
+            canFlip  = true;
+            current  = current === ELLIE ? GRANDPA : ELLIE;
+            setTurn();
+        }
+    }
+
+    /* ── End of game ── */
+    function endGame() {
+        const e = scores.Ellie, g = scores.Grandpa;
+        let rEmoji, rTitle, rMsg;
+        if (e > g) {
+            wins.Ellie++;
+            rEmoji = '🦄'; rTitle = 'Ellie Wins!';
+            rMsg   = `Ellie found more pairs — amazing! 🌟`;
+        } else if (g > e) {
+            wins.Grandpa++;
+            rEmoji = '🐉'; rTitle = 'Grandpa Wins!';
+            rMsg   = `Grandpa wins this round! 🎉`;
+        } else {
+            rEmoji = '🌟'; rTitle = "It's a Tie!";
+            rMsg   = `Both players are equally awesome! 🦄🐉`;
+        }
+
+        document.getElementById('rEmoji').textContent  = rEmoji;
+        document.getElementById('rTitle').textContent  = rTitle;
+        document.getElementById('rScores').innerHTML   =
+            `🦄 Ellie: ${e} &nbsp;|&nbsp; 🐉 Grandpa: ${g}`;
+        document.getElementById('rMsg').textContent    = rMsg;
+        document.getElementById('overlay').classList.add('show');
+
+        if (e !== g) launchConfetti();
+    }
+
+    /* ── UI helpers ── */
+    function setTurn() {
+        flashTurn(`${current.emoji}  ${current.name}'s turn!`, false);
+        document.getElementById('cardEllie').classList.toggle('active',   current === ELLIE);
+        document.getElementById('cardGrandpa').classList.toggle('active', current === GRANDPA);
+    }
+
+    let flashTimer = null;
+    function flashTurn(msg, isMatch) {
+        const el = document.getElementById('turnIndicator');
+        el.textContent = msg;
+        el.classList.toggle('matched-flash', isMatch);
+        if (isMatch) {
+            clearTimeout(flashTimer);
+            flashTimer = setTimeout(() => {
+                el.classList.remove('matched-flash');
+                el.textContent = `${current.emoji}  ${current.name}'s turn!`;
+            }, 1800);
+        }
+    }
+
+    function updateScores() {
+        document.getElementById('scoreEllie').textContent   = scores.Ellie;
+        document.getElementById('scoreGrandpa').textContent = scores.Grandpa;
+    }
+
+    /* ── Confetti ── */
+    function launchConfetti() {
+        const wrap = document.getElementById('confetti');
+        wrap.innerHTML = '';
+        const colors = ['#ffd700','#ff6bbd','#a855f7','#38bdf8','#34d399','#fb923c','#f43f5e'];
+        for (let i = 0; i < 80; i++) {
+            const p  = document.createElement('div');
+            p.className = 'cp';
+            const w  = Math.random() * 10 + 6;
+            const h  = Math.random() * 10 + 6;
+            const br = Math.random() > 0.5 ? '50%' : '2px';
+            p.style.cssText = `left:${Math.random()*100}%;width:${w}px;height:${h}px;background:${colors[i%colors.length]};border-radius:${br};--fd:${(Math.random()*2+1.5).toFixed(2)}s;--del:${(Math.random()*.8).toFixed(2)}s`;
+            wrap.appendChild(p);
+        }
+    }
+
+    /* ── New game ── */
+    function newGame() {
+        scores.Ellie   = 0;
+        scores.Grandpa = 0;
+        matched        = 0;
+        flipped        = [];
+        canFlip        = true;
+        clearTimeout(flashTimer);
+
+        updateScores();
+        document.getElementById('overlay').classList.remove('show');
+        document.getElementById('confetti').innerHTML = '';
+
+        buildGrid(shuffle([...EMOJI_SET, ...EMOJI_SET]));
+
+        current = Math.random() < 0.5 ? ELLIE : GRANDPA;
+        setTurn();
+        document.getElementById('cardEllie').classList.toggle('active',   current === ELLIE);
+        document.getElementById('cardGrandpa').classList.toggle('active', current === GRANDPA);
+    }
+
+    /* ── Start ── */
+    newGame();
+</script>
+</body>
+</html>

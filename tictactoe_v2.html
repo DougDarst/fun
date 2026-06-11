@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🦄 vs 🐉 Ellie & Grandpa!</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            min-height: 100vh;
+            min-height: 100dvh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Rounded, sans-serif;
+            background: linear-gradient(135deg, #1a0040, #0a1560, #2d0060, #0a1560, #1a0040);
+            background-size: 400% 400%;
+            animation: bgShift 12s ease infinite;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 14px 14px 20px;
+            overflow-x: hidden;
+            color: white;
+        }
+
+        @keyframes bgShift {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* ── Stars ── */
+        .stars {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle var(--d) ease-in-out infinite var(--delay);
+            opacity: 0;
+        }
+        @keyframes twinkle {
+            0%, 100% { opacity: 0;   transform: scale(0.4); }
+            50%       { opacity: 0.9; transform: scale(1);   }
+        }
+
+        /* ── Layout ── */
+        .game {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 420px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        /* ── Top bar: back + title ── */
+        .top-bar {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .back-btn {
+            background: rgba(255,255,255,0.12);
+            border: 1.5px solid rgba(255,255,255,0.2);
+            color: white;
+            border-radius: 50px;
+            padding: 8px 14px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            flex-shrink: 0;
+            text-decoration: none;
+            transition: background 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .back-btn:active { background: rgba(255,255,255,0.22); }
+        .top-title {
+            flex: 1;
+            text-align: center;
+            font-size: 1.45rem;
+            font-weight: 900;
+            text-shadow: 0 0 20px rgba(255,200,80,0.8);
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+        .top-spacer {
+            flex-shrink: 0;
+            width: 74px;
+        }
+
+        /* ── Scoreboard ── */
+        .scoreboard {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .player-card {
+            flex: 1;
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 2px solid rgba(255,255,255,0.15);
+            border-radius: 22px;
+            padding: 14px 8px;
+            text-align: center;
+            transition: all 0.35s cubic-bezier(0.34, 1.4, 0.64, 1);
+        }
+        .player-card.active {
+            background: rgba(255, 210, 60, 0.22);
+            border-color: #ffd700;
+            box-shadow: 0 0 24px rgba(255,215,0,0.45), inset 0 0 16px rgba(255,215,0,0.08);
+            transform: scale(1.05);
+        }
+        .player-emoji-big { font-size: 2.6rem; line-height: 1; margin-bottom: 4px; }
+        .player-name-label {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: rgba(255,255,255,0.88);
+            letter-spacing: 1px;
+        }
+        .player-score {
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: #ffd700;
+            text-shadow: 0 0 12px rgba(255,215,0,0.6);
+            line-height: 1.1;
+        }
+        .score-label {
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.45);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* ── Turn indicator ── */
+        .turn-indicator {
+            font-size: 1.15rem;
+            font-weight: 700;
+            text-align: center;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50px;
+            padding: 11px 24px;
+            border: 1.5px solid rgba(255,255,255,0.2);
+            width: 100%;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            letter-spacing: 0.5px;
+        }
+
+        /* ── Board ── */
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 9px;
+            width: 100%;
+            aspect-ratio: 1;
+            background: rgba(255,255,255,0.06);
+            border-radius: 26px;
+            padding: 9px;
+            border: 2px solid rgba(255,255,255,0.12);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4), inset 0 1px 3px rgba(255,255,255,0.1);
+        }
+
+        .cell {
+            background: rgba(255,255,255,0.10);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.08);
+            user-select: none;
+            transition: background 0.18s, transform 0.12s, border-color 0.18s;
+            -webkit-user-select: none;
+            aspect-ratio: 1;
+            min-height: 0;
+        }
+        .cell:not(.filled):active {
+            transform: scale(0.88);
+            background: rgba(255,255,255,0.2);
+        }
+        .cell.filled { cursor: default; }
+        .cell.winning {
+            background: rgba(255,215,0,0.28);
+            border-color: #ffd700;
+            animation: winGlow 0.7s ease-in-out infinite alternate;
+        }
+        @keyframes winGlow {
+            from { box-shadow: 0 0 10px rgba(255,215,0,0.4); }
+            to   { box-shadow: 0 0 30px rgba(255,215,0,0.85); }
+        }
+
+        .emoji-pop {
+            display: inline-block;
+            animation: popIn 0.38s cubic-bezier(0.34, 1.6, 0.64, 1);
+        }
+        @keyframes popIn {
+            0%   { transform: scale(0) rotate(-15deg); opacity: 0; }
+            100% { transform: scale(1) rotate(0deg);   opacity: 1; }
+        }
+
+        /* ── New Game button ── */
+        .new-game-btn {
+            background: rgba(255,255,255,0.12);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.28);
+            border-radius: 50px;
+            padding: 13px 36px;
+            font-size: 1rem;
+            font-weight: 800;
+            cursor: pointer;
+            letter-spacing: 1.5px;
+            transition: all 0.2s;
+        }
+        .new-game-btn:active {
+            transform: scale(0.94);
+            background: rgba(255,255,255,0.22);
+        }
+
+        /* ── Result overlay ── */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(5, 0, 20, 0.80);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+        .overlay.show {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .result-card {
+            background: linear-gradient(145deg, rgba(50,0,90,0.97), rgba(10,15,80,0.97));
+            border: 2.5px solid rgba(255,215,0,0.55);
+            border-radius: 30px;
+            padding: 40px 28px 32px;
+            text-align: center;
+            max-width: 320px;
+            width: 88%;
+            box-shadow: 0 0 60px rgba(255,215,0,0.25), 0 24px 60px rgba(0,0,0,0.6);
+            animation: cardIn 0.5s cubic-bezier(0.34, 1.5, 0.64, 1);
+        }
+        @keyframes cardIn {
+            from { transform: scale(0.55) translateY(50px); opacity: 0; }
+            to   { transform: scale(1)    translateY(0);    opacity: 1; }
+        }
+
+        .result-big-emoji {
+            font-size: 5.5rem;
+            line-height: 1;
+            display: block;
+            margin-bottom: 8px;
+            animation: bounceIn 0.55s cubic-bezier(0.34, 1.6, 0.64, 1);
+        }
+        @keyframes bounceIn {
+            from { transform: scale(0.3) rotate(-20deg); }
+            to   { transform: scale(1)   rotate(0deg);   }
+        }
+
+        .result-title {
+            font-size: 2.1rem;
+            font-weight: 900;
+            color: #ffd700;
+            text-shadow: 0 0 20px rgba(255,215,0,0.7);
+            margin-bottom: 6px;
+        }
+        .result-message {
+            font-size: 1.05rem;
+            color: rgba(255,255,255,0.78);
+            margin-bottom: 28px;
+            line-height: 1.5;
+        }
+
+        .play-again-btn {
+            background: linear-gradient(135deg, #ffd700, #ff8800);
+            color: #1a0033;
+            border: none;
+            border-radius: 50px;
+            padding: 17px 44px;
+            font-size: 1.2rem;
+            font-weight: 900;
+            cursor: pointer;
+            box-shadow: 0 6px 24px rgba(255,140,0,0.55);
+            letter-spacing: 1px;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .play-again-btn:active {
+            transform: scale(0.93);
+            box-shadow: 0 3px 12px rgba(255,140,0,0.35);
+        }
+
+        /* ── Confetti ── */
+        .confetti-wrap {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 99;
+            overflow: hidden;
+        }
+        .cp {
+            position: absolute;
+            top: -14px;
+            animation: fall var(--fd) ease-in var(--del) forwards;
+        }
+        @keyframes fall {
+            0%   { transform: translateY(0)     rotate(0deg);   opacity: 1; }
+            100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+<div class="confetti-wrap" id="confetti"></div>
+
+<!-- Result overlay -->
+<div class="overlay" id="overlay">
+    <div class="result-card">
+        <span class="result-big-emoji" id="rEmoji">🏆</span>
+        <div class="result-title" id="rTitle">Winner!</div>
+        <div class="result-message" id="rMsg">Great game!</div>
+        <button class="play-again-btn" onclick="newGame()">Play Again! 🎮</button>
+    </div>
+</div>
+
+<!-- Game -->
+<div class="game">
+    <div class="top-bar">
+        <a class="back-btn" href="index.html">← Games</a>
+        <div class="top-title">Tic-Tac-Toe</div>
+        <div class="top-spacer"></div>
+    </div>
+
+    <div class="scoreboard">
+        <div class="player-card" id="cardEllie">
+            <div class="player-emoji-big">🦄</div>
+            <div class="player-name-label">Ellie</div>
+            <div class="player-score" id="scoreEllie">0</div>
+            <div class="score-label">wins</div>
+        </div>
+        <div class="player-card" id="cardGrandpa">
+            <div class="player-emoji-big">🐉</div>
+            <div class="player-name-label">Grandpa</div>
+            <div class="player-score" id="scoreGrandpa">0</div>
+            <div class="score-label">wins</div>
+        </div>
+    </div>
+
+    <div class="turn-indicator" id="turnIndicator">✨ Loading...</div>
+
+    <div class="board" id="board"></div>
+
+    <button class="new-game-btn" onclick="newGame()">🔄 New Game</button>
+</div>
+
+<script>
+    /* ── Stars ── */
+    const starsEl = document.getElementById('stars');
+    for (let i = 0; i < 70; i++) {
+        const s = document.createElement('div');
+        s.className = 'star';
+        const sz = Math.random() * 2.5 + 0.8;
+        s.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${(Math.random()*3+2).toFixed(1)}s;--delay:-${(Math.random()*5).toFixed(1)}s`;
+        starsEl.appendChild(s);
+    }
+
+    /* ── Game constants ── */
+    const ELLIE   = { name: 'Ellie',   emoji: '🦄', id: 'Ellie'   };
+    const GRANDPA = { name: 'Grandpa', emoji: '🐉', id: 'Grandpa' };
+    const WINS = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+    /* ── State ── */
+    let board        = Array(9).fill(null);
+    let current      = null;
+    let over         = false;
+    const scores     = { Ellie: 0, Grandpa: 0 };
+
+    /* ── Build board cells ── */
+    const boardEl = document.getElementById('board');
+    for (let i = 0; i < 9; i++) {
+        const c = document.createElement('div');
+        c.className = 'cell';
+        c.addEventListener('click', () => tap(i));
+        boardEl.appendChild(c);
+    }
+
+    /* ── Tap handler ── */
+    function tap(i) {
+        if (over || board[i]) return;
+        board[i] = current.emoji;
+
+        const cell = boardEl.children[i];
+        cell.classList.add('filled');
+        const span = document.createElement('span');
+        span.className = 'emoji-pop';
+        span.textContent = current.emoji;
+        cell.appendChild(span);
+
+        const result = checkResult();
+        if (result) {
+            over = true;
+            if (result.draw) {
+                setTimeout(() => showResult('🌟', "It's a Draw!", 'Amazing playing — both of you!'), 500);
+            } else {
+                scores[current.id]++;
+                updateScores();
+                result.combo.forEach(idx => boardEl.children[idx].classList.add('winning'));
+                setTimeout(() => {
+                    launchConfetti();
+                    showResult(current.emoji, `${current.name} Wins!`, `Way to go, ${current.name}! ${current.emoji}${current.emoji}${current.emoji}`);
+                }, 500);
+            }
+        } else {
+            current = current === ELLIE ? GRANDPA : ELLIE;
+            setTurn();
+        }
+    }
+
+    function checkResult() {
+        for (const [a,b,c] of WINS) {
+            if (board[a] && board[a] === board[b] && board[a] === board[c])
+                return { combo: [a,b,c] };
+        }
+        if (board.every(v => v)) return { draw: true };
+        return null;
+    }
+
+    /* ── UI helpers ── */
+    function setTurn() {
+        document.getElementById('turnIndicator').textContent =
+            `${current.emoji}  ${current.name}'s turn!`;
+        document.getElementById('cardEllie').classList.toggle('active',   current === ELLIE);
+        document.getElementById('cardGrandpa').classList.toggle('active', current === GRANDPA);
+    }
+
+    function updateScores() {
+        document.getElementById('scoreEllie').textContent   = scores.Ellie;
+        document.getElementById('scoreGrandpa').textContent = scores.Grandpa;
+    }
+
+    function showResult(emoji, title, msg) {
+        document.getElementById('rEmoji').textContent = emoji;
+        document.getElementById('rTitle').textContent = title;
+        document.getElementById('rMsg').textContent   = msg;
+        document.getElementById('overlay').classList.add('show');
+    }
+
+    /* ── Confetti ── */
+    function launchConfetti() {
+        const wrap = document.getElementById('confetti');
+        wrap.innerHTML = '';
+        const colors = ['#ffd700','#ff6bbd','#a855f7','#38bdf8','#34d399','#fb923c','#f43f5e'];
+        const shapes = ['50%', '2px'];
+        for (let i = 0; i < 80; i++) {
+            const p = document.createElement('div');
+            p.className = 'cp';
+            const w = Math.random() * 10 + 6;
+            const h = Math.random() * 10 + 6;
+            p.style.cssText = `left:${Math.random()*100}%;width:${w}px;height:${h}px;background:${colors[i%colors.length]};border-radius:${shapes[Math.random()>.5?0:1]};--fd:${(Math.random()*2+1.5).toFixed(2)}s;--del:${(Math.random()*.8).toFixed(2)}s`;
+            wrap.appendChild(p);
+        }
+    }
+
+    /* ── New game ── */
+    function newGame() {
+        board = Array(9).fill(null);
+        over  = false;
+        document.getElementById('overlay').classList.remove('show');
+        document.getElementById('confetti').innerHTML = '';
+        Array.from(boardEl.children).forEach(c => { c.className = 'cell'; c.innerHTML = ''; });
+        current = Math.random() < 0.5 ? ELLIE : GRANDPA;
+        setTurn();
+    }
+
+    /* ── Start ── */
+    newGame();
+</script>
+</body>
+</html>
