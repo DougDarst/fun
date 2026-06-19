@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🎈 Pop the Balloons — Ellie & Grandpa</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            min-height: 100vh;
+            min-height: 100dvh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Rounded, sans-serif;
+            background: linear-gradient(135deg, #1a0040, #0a1560, #2d0060, #0a1560, #1a0040);
+            background-size: 400% 400%;
+            animation: bgShift 12s ease infinite;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 14px 14px 20px;
+            overflow: hidden;
+            color: white;
+            height: 100vh;
+            height: 100dvh;
+        }
+
+        @keyframes bgShift {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* ── Stars ── */
+        .stars {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle var(--d) ease-in-out infinite var(--delay);
+            opacity: 0;
+        }
+        @keyframes twinkle {
+            0%, 100% { opacity: 0;   transform: scale(0.4); }
+            50%       { opacity: 0.9; transform: scale(1);   }
+        }
+
+        /* ── Layout ── */
+        .game {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 420px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            height: 100%;
+        }
+
+        /* ── Top bar ── */
+        .top-bar {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        .back-btn {
+            background: rgba(255,255,255,0.12);
+            border: 1.5px solid rgba(255,255,255,0.2);
+            color: white;
+            border-radius: 50px;
+            padding: 8px 14px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            flex-shrink: 0;
+            text-decoration: none;
+            transition: background 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .back-btn:active { background: rgba(255,255,255,0.22); }
+        h1 {
+            flex: 1;
+            text-align: center;
+            font-size: 1.45rem;
+            font-weight: 900;
+            text-shadow: 0 0 20px rgba(255,200,80,0.8);
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+        .top-spacer {
+            flex-shrink: 0;
+            width: 74px;
+        }
+
+        /* ── Stats bar ── */
+        .stats-bar {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            flex-shrink: 0;
+        }
+        .stat-card {
+            flex: 1;
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 2px solid rgba(255,255,255,0.15);
+            border-radius: 20px;
+            padding: 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.9rem;
+            font-weight: 900;
+            color: #ffd700;
+            text-shadow: 0 0 10px rgba(255,215,0,0.55);
+            line-height: 1.1;
+        }
+        .stat-label {
+            font-size: 0.62rem;
+            color: rgba(255,255,255,0.4);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* ── Level indicator ── */
+        .level-bar {
+            width: 100%;
+            background: rgba(255,255,255,0.1);
+            border: 1.5px solid rgba(255,255,255,0.2);
+            border-radius: 50px;
+            padding: 8px 20px;
+            font-size: 1rem;
+            font-weight: 700;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            letter-spacing: 0.4px;
+            flex-shrink: 0;
+        }
+
+        /* ── Balloon arena ── */
+        .arena {
+            flex: 1;
+            width: 100%;
+            position: relative;
+            border-radius: 20px;
+            overflow: hidden;
+            background: rgba(0,0,0,0.2);
+            border: 2px solid rgba(255,255,255,0.1);
+            touch-action: none;
+        }
+
+        /* ── Balloon ── */
+        .balloon {
+            position: absolute;
+            width: 56px;
+            height: 68px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            will-change: transform;
+        }
+        .balloon-body {
+            width: 56px;
+            height: 60px;
+            border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%;
+            position: relative;
+            box-shadow: inset -8px -8px 20px rgba(0,0,0,0.25), inset 4px 4px 12px rgba(255,255,255,0.3);
+            transition: transform 0.1s;
+        }
+        .balloon-body::after {
+            content: '';
+            position: absolute;
+            width: 14px;
+            height: 18px;
+            background: inherit;
+            filter: brightness(0.85);
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            clip-path: polygon(50% 100%, 0% 0%, 100% 0%);
+            border-radius: 0 0 3px 3px;
+        }
+        .balloon-string {
+            width: 1px;
+            height: 14px;
+            background: rgba(255,255,255,0.4);
+        }
+
+        .balloon.black .balloon-body {
+            background: radial-gradient(circle at 35% 35%, #555, #111);
+            box-shadow: inset -8px -8px 20px rgba(0,0,0,0.6), inset 4px 4px 12px rgba(255,255,255,0.1), 0 0 12px rgba(255,50,50,0.4);
+        }
+
+        .balloon.popping {
+            animation: pop 0.25s ease-out forwards;
+        }
+        @keyframes pop {
+            0%   { transform: scale(1);   opacity: 1; }
+            40%  { transform: scale(1.5); opacity: 0.8; }
+            100% { transform: scale(0);   opacity: 0; }
+        }
+
+        /* ── Pop burst ── */
+        .burst {
+            position: absolute;
+            pointer-events: none;
+            font-size: 1.6rem;
+            animation: burst 0.6s ease-out forwards;
+            transform-origin: center;
+            z-index: 10;
+        }
+        @keyframes burst {
+            0%   { transform: scale(0.5); opacity: 1; }
+            60%  { transform: scale(1.4); opacity: 0.9; }
+            100% { transform: scale(2);   opacity: 0; }
+        }
+
+        /* ── Start screen ── */
+        .start-screen {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            z-index: 20;
+        }
+        .start-emoji {
+            font-size: 5rem;
+            animation: float 2s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50%       { transform: translateY(-12px); }
+        }
+        .start-title {
+            font-size: 1.6rem;
+            font-weight: 900;
+            color: #ffd700;
+            text-shadow: 0 0 20px rgba(255,215,0,0.7);
+        }
+        .start-subtitle {
+            font-size: 0.95rem;
+            color: rgba(255,255,255,0.65);
+            text-align: center;
+            line-height: 1.6;
+            padding: 0 20px;
+        }
+        .start-btn {
+            background: linear-gradient(135deg, #ffd700, #ff8800);
+            color: #1a0033;
+            border: none;
+            border-radius: 50px;
+            padding: 16px 44px;
+            font-size: 1.2rem;
+            font-weight: 900;
+            cursor: pointer;
+            box-shadow: 0 6px 24px rgba(255,140,0,0.5);
+            letter-spacing: 1px;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .start-btn:active {
+            transform: scale(0.93);
+            box-shadow: 0 3px 12px rgba(255,140,0,0.35);
+        }
+
+        /* ── Result overlay ── */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(5,0,20,0.80);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+        .overlay.show { opacity: 1; pointer-events: all; }
+
+        .result-card {
+            background: linear-gradient(145deg, rgba(50,0,90,0.97), rgba(10,15,80,0.97));
+            border: 2.5px solid rgba(255,215,0,0.55);
+            border-radius: 30px;
+            padding: 36px 28px 30px;
+            text-align: center;
+            max-width: 320px;
+            width: 88%;
+            box-shadow: 0 0 60px rgba(255,215,0,0.2), 0 24px 60px rgba(0,0,0,0.6);
+            animation: cardIn 0.5s cubic-bezier(0.34, 1.5, 0.64, 1);
+        }
+        @keyframes cardIn {
+            from { transform: scale(0.55) translateY(50px); opacity: 0; }
+            to   { transform: scale(1)    translateY(0);    opacity: 1; }
+        }
+        .result-big-emoji {
+            font-size: 5rem;
+            display: block;
+            margin-bottom: 8px;
+            animation: bounceIn 0.55s cubic-bezier(0.34, 1.6, 0.64, 1);
+        }
+        @keyframes bounceIn {
+            from { transform: scale(0.3) rotate(-20deg); }
+            to   { transform: scale(1)   rotate(0deg);   }
+        }
+        .result-title {
+            font-size: 2rem;
+            font-weight: 900;
+            color: #ffd700;
+            text-shadow: 0 0 20px rgba(255,215,0,0.7);
+            margin-bottom: 6px;
+        }
+        .result-scores {
+            font-size: 1rem;
+            color: rgba(255,255,255,0.75);
+            margin-bottom: 6px;
+            line-height: 1.7;
+        }
+        .result-msg {
+            font-size: 0.95rem;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 26px;
+        }
+        .play-again-btn {
+            background: linear-gradient(135deg, #ffd700, #ff8800);
+            color: #1a0033;
+            border: none;
+            border-radius: 50px;
+            padding: 16px 40px;
+            font-size: 1.15rem;
+            font-weight: 900;
+            cursor: pointer;
+            box-shadow: 0 6px 24px rgba(255,140,0,0.5);
+            letter-spacing: 1px;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .play-again-btn:active {
+            transform: scale(0.93);
+            box-shadow: 0 3px 12px rgba(255,140,0,0.35);
+        }
+
+        /* ── Confetti ── */
+        .confetti-wrap {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 99;
+            overflow: hidden;
+        }
+        .cp {
+            position: absolute;
+            top: -14px;
+            animation: fall var(--fd) ease-in var(--del) forwards;
+        }
+        @keyframes fall {
+            0%   { transform: translateY(0)     rotate(0deg);   opacity: 1; }
+            100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+        }
+
+        /* ── New game button ── */
+        .new-game-btn {
+            background: rgba(255,255,255,0.12);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.28);
+            border-radius: 50px;
+            padding: 11px 32px;
+            font-size: 0.95rem;
+            font-weight: 800;
+            cursor: pointer;
+            letter-spacing: 1.5px;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .new-game-btn:active {
+            transform: scale(0.94);
+            background: rgba(255,255,255,0.22);
+        }
+    </style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+<div class="confetti-wrap" id="confetti"></div>
+
+<!-- Result overlay -->
+<div class="overlay" id="overlay">
+    <div class="result-card">
+        <span class="result-big-emoji" id="rEmoji">💥</span>
+        <div class="result-title" id="rTitle">Game Over!</div>
+        <div class="result-scores" id="rScores"></div>
+        <div class="result-msg" id="rMsg"></div>
+        <button class="play-again-btn" onclick="startGame()">Play Again! 🎮</button>
+    </div>
+</div>
+
+<div class="game">
+
+    <!-- Top bar -->
+    <div class="top-bar">
+        <a class="back-btn" href="index.html">← Games</a>
+        <h1>🎈 Pop!</h1>
+        <div class="top-spacer"></div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-bar">
+        <div class="stat-card">
+            <div class="stat-value" id="statScore">0</div>
+            <div class="stat-label">score</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="statBest">0</div>
+            <div class="stat-label">best</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="statMissed">0</div>
+            <div class="stat-label">missed</div>
+        </div>
+    </div>
+
+    <!-- Level -->
+    <div class="level-bar" id="levelBar">⚡ Level 1 — Pop the balloons!</div>
+
+    <!-- Arena -->
+    <div class="arena" id="arena">
+        <div class="start-screen" id="startScreen">
+            <div class="start-emoji">🎈</div>
+            <div class="start-title">Pop the Balloons!</div>
+            <div class="start-subtitle">
+                Tap colorful balloons to pop them.<br>
+                <strong style="color:#ff6b6b">🖤 Black balloons = instant game over!</strong><br>
+                Speed increases every 5 pops.
+            </div>
+            <button class="start-btn" onclick="startGame()">Let's Go! 🚀</button>
+        </div>
+    </div>
+
+    <!-- New game button -->
+    <button class="new-game-btn" id="newGameBtn" onclick="startGame()" style="display:none">🔄 New Game</button>
+
+</div>
+
+<script>
+    /* ── Stars ── */
+    const starsEl = document.getElementById('stars');
+    for (let i = 0; i < 70; i++) {
+        const s = document.createElement('div');
+        s.className = 'star';
+        const sz = (Math.random() * 2.5 + 0.8).toFixed(1);
+        s.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${(Math.random()*3+2).toFixed(1)}s;--delay:-${(Math.random()*5).toFixed(1)}s`;
+        starsEl.appendChild(s);
+    }
+
+    /* ── Balloon colors ── */
+    const COLORS = [
+        'radial-gradient(circle at 35% 35%, #ff9999, #e60000)',
+        'radial-gradient(circle at 35% 35%, #ffb366, #e67300)',
+        'radial-gradient(circle at 35% 35%, #ffe066, #e6b800)',
+        'radial-gradient(circle at 35% 35%, #99e699, #00b300)',
+        'radial-gradient(circle at 35% 35%, #99ccff, #0066cc)',
+        'radial-gradient(circle at 35% 35%, #cc99ff, #6600cc)',
+        'radial-gradient(circle at 35% 35%, #ff99cc, #cc0066)',
+        'radial-gradient(circle at 35% 35%, #66ffee, #00b399)',
+    ];
+
+    /* ── State ── */
+    let score       = 0;
+    let best        = 0;
+    let missed      = 0;
+    let level       = 1;
+    let running     = false;
+    let spawnTimer  = null;
+    let animFrame   = null;
+    let balloons    = [];   // { el, x, y, speed, isBlack }
+    let arenaW      = 0;
+    let arenaH      = 0;
+    const BALLOON_W = 56;
+    const BALLOON_H = 82;  // body + string
+    const MAX_MISS  = 5;
+
+    const arenaEl    = document.getElementById('arena');
+    const scoreEl    = document.getElementById('statScore');
+    const bestEl     = document.getElementById('statBest');
+    const missedEl   = document.getElementById('statMissed');
+    const levelBarEl = document.getElementById('levelBar');
+    const newGameBtn = document.getElementById('newGameBtn');
+    const startScr   = document.getElementById('startScreen');
+
+    /* ── Level config ── */
+    function getConfig() {
+        const l = level;
+        return {
+            spawnInterval: Math.max(600, 1800 - (l - 1) * 100),
+            baseSpeed:     0.6 + (l - 1) * 0.18,
+            blackChance:   Math.min(0.25, 0.05 + (l - 1) * 0.02),
+        };
+    }
+
+    /* ── Start / reset ── */
+    function startGame() {
+        score   = 0;
+        missed  = 0;
+        level   = 1;
+        running = true;
+
+        clearTimeout(spawnTimer);
+        cancelAnimationFrame(animFrame);
+
+        // remove old balloons
+        balloons.forEach(b => b.el.remove());
+        balloons = [];
+
+        // hide start screen and overlay
+        startScr.style.display = 'none';
+        document.getElementById('overlay').classList.remove('show');
+        document.getElementById('confetti').innerHTML = '';
+        newGameBtn.style.display = '';
+
+        updateUI();
+        measureArena();
+        scheduleSpawn();
+        tick();
+    }
+
+    function measureArena() {
+        const r = arenaEl.getBoundingClientRect();
+        arenaW = r.width;
+        arenaH = r.height;
+    }
+
+    /* ── Spawning ── */
+    function scheduleSpawn() {
+        if (!running) return;
+        const { spawnInterval } = getConfig();
+        spawnTimer = setTimeout(() => {
+            spawnBalloon();
+            scheduleSpawn();
+        }, spawnInterval);
+    }
+
+    function spawnBalloon() {
+        const { baseSpeed, blackChance } = getConfig();
+        const isBlack = Math.random() < blackChance;
+        const x = Math.random() * (arenaW - BALLOON_W);
+        const speed = baseSpeed + Math.random() * 0.3;
+
+        const el = document.createElement('div');
+        el.className = 'balloon' + (isBlack ? ' black' : '');
+        el.innerHTML = `<div class="balloon-body"></div><div class="balloon-string"></div>`;
+        el.style.left = x + 'px';
+        el.style.top  = (arenaH + BALLOON_H) + 'px';
+
+        if (!isBlack) {
+            el.querySelector('.balloon-body').style.background =
+                COLORS[Math.floor(Math.random() * COLORS.length)];
+        }
+
+        el.addEventListener('pointerdown', e => {
+            e.stopPropagation();
+            handlePop(balloon, isBlack);
+        });
+
+        arenaEl.appendChild(el);
+        const balloon = { el, x, y: arenaH + BALLOON_H, speed, isBlack, done: false };
+        balloons.push(balloon);
+    }
+
+    /* ── Animation loop ── */
+    function tick() {
+        if (!running) return;
+        measureArena();
+
+        balloons.forEach(b => {
+            if (b.done) return;
+            b.y -= b.speed;
+            b.el.style.top = b.y + 'px';
+
+            // escaped off top
+            if (b.y + BALLOON_H < 0) {
+                b.done = true;
+                b.el.remove();
+                if (!b.isBlack) {
+                    missed++;
+                    updateUI();
+                    if (missed >= MAX_MISS) {
+                        endGame(false, 'Too many balloons escaped! 🎈💨');
+                        return;
+                    }
+                }
+            }
+        });
+
+        balloons = balloons.filter(b => !b.done);
+        animFrame = requestAnimationFrame(tick);
+    }
+
+    /* ── Pop ── */
+    function handlePop(balloon, isBlack) {
+        if (!running || balloon.done) return;
+        balloon.done = true;
+
+        // pop animation
+        balloon.el.classList.add('popping');
+
+        // burst emoji
+        const burst = document.createElement('div');
+        burst.className = 'burst';
+        burst.textContent = isBlack ? '💀' : ['✨','🌟','💥','🎉'][Math.floor(Math.random()*4)];
+        burst.style.left = (balloon.x + BALLOON_W / 2 - 16) + 'px';
+        burst.style.top  = (balloon.y + 20) + 'px';
+        arenaEl.appendChild(burst);
+        setTimeout(() => burst.remove(), 700);
+
+        setTimeout(() => balloon.el.remove(), 260);
+
+        if (isBlack) {
+            endGame(false, 'You popped a 🖤 black balloon!');
+        } else {
+            score++;
+            // level up every 5 pops
+            const newLevel = Math.floor(score / 5) + 1;
+            if (newLevel > level) {
+                level = newLevel;
+                flashLevel();
+            }
+            updateUI();
+        }
+    }
+
+    /* ── End game ── */
+    function endGame(won, msg) {
+        running = false;
+        clearTimeout(spawnTimer);
+        cancelAnimationFrame(animFrame);
+
+        if (score > best) best = score;
+        updateUI();
+
+        setTimeout(() => {
+            document.getElementById('rEmoji').textContent  = won ? '🏆' : '💥';
+            document.getElementById('rTitle').textContent  = won ? 'Amazing!' : 'Game Over!';
+            document.getElementById('rScores').innerHTML   = `🎈 Score: <strong>${score}</strong> &nbsp;|&nbsp; 🏅 Best: <strong>${best}</strong>`;
+            document.getElementById('rMsg').textContent    = msg;
+            document.getElementById('overlay').classList.add('show');
+
+            if (score >= 20) launchConfetti();
+        }, 350);
+    }
+
+    /* ── UI ── */
+    function updateUI() {
+        scoreEl.textContent  = score;
+        bestEl.textContent   = best;
+        missedEl.textContent = missed + ' / ' + MAX_MISS;
+        levelBarEl.textContent = `⚡ Level ${level} — ${getLevelMsg()}`;
+    }
+
+    function getLevelMsg() {
+        if (level <= 2) return 'Pop the balloons!';
+        if (level <= 4) return 'Getting faster…';
+        if (level <= 6) return 'Watch out! 🖤';
+        if (level <= 9) return 'Blazing speed! 🔥';
+        return 'INSANE! 🌪️';
+    }
+
+    let flashTimer = null;
+    function flashLevel() {
+        levelBarEl.style.background = 'rgba(255,215,0,0.25)';
+        levelBarEl.style.borderColor = 'rgba(255,215,0,0.6)';
+        clearTimeout(flashTimer);
+        flashTimer = setTimeout(() => {
+            levelBarEl.style.background = '';
+            levelBarEl.style.borderColor = '';
+        }, 800);
+    }
+
+    /* ── Confetti ── */
+    function launchConfetti() {
+        const wrap = document.getElementById('confetti');
+        wrap.innerHTML = '';
+        const colors = ['#ffd700','#ff6bbd','#a855f7','#38bdf8','#34d399','#fb923c','#f43f5e'];
+        for (let i = 0; i < 80; i++) {
+            const p  = document.createElement('div');
+            p.className = 'cp';
+            const w  = Math.random() * 10 + 6;
+            const h  = Math.random() * 10 + 6;
+            const br = Math.random() > 0.5 ? '50%' : '2px';
+            p.style.cssText = `left:${Math.random()*100}%;width:${w}px;height:${h}px;background:${colors[i%colors.length]};border-radius:${br};--fd:${(Math.random()*2+1.5).toFixed(2)}s;--del:${(Math.random()*.8).toFixed(2)}s`;
+            wrap.appendChild(p);
+        }
+    }
+
+    /* ── Init ── */
+    updateUI();
+</script>
+</body>
+</html>

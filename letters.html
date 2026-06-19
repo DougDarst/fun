@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🔤 First Letter — Ellie & Grandpa</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+        body {
+            min-height:100vh; min-height:100dvh;
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Rounded,sans-serif;
+            background:linear-gradient(135deg,#1a0040,#0a1560,#2d0060,#0a1560,#1a0040);
+            background-size:400% 400%;
+            animation:bgShift 12s ease infinite;
+            display:flex; flex-direction:column; align-items:center;
+            padding:14px 14px 20px; overflow-x:hidden; color:white;
+        }
+        @keyframes bgShift {
+            0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%}
+        }
+
+        .stars { position:fixed; inset:0; pointer-events:none; z-index:0; }
+        .star {
+            position:absolute; background:white; border-radius:50%;
+            animation:twinkle var(--d) ease-in-out infinite var(--delay); opacity:0;
+        }
+        @keyframes twinkle {
+            0%,100%{opacity:0;transform:scale(0.4)} 50%{opacity:0.9;transform:scale(1)}
+        }
+
+        .game {
+            position:relative; z-index:1; width:100%; max-width:420px;
+            display:flex; flex-direction:column; align-items:center; gap:12px;
+        }
+
+        /* ── Top bar ── */
+        .top-bar { width:100%; display:flex; align-items:center; gap:10px; }
+        .back-btn {
+            background:rgba(255,255,255,0.12); border:1.5px solid rgba(255,255,255,0.2);
+            color:white; border-radius:50px; padding:8px 14px; font-size:0.82rem;
+            font-weight:700; cursor:pointer; white-space:nowrap; flex-shrink:0;
+            text-decoration:none; transition:background 0.2s; letter-spacing:0.5px;
+        }
+        .back-btn:active { background:rgba(255,255,255,0.22); }
+        h1 {
+            flex:1; text-align:center; font-size:1.35rem; font-weight:900;
+            text-shadow:0 0 20px rgba(255,200,80,0.8); letter-spacing:1px;
+        }
+        .top-spacer { flex-shrink:0; width:74px; }
+
+        /* ── Stats ── */
+        .stats-row { display:flex; gap:10px; width:100%; }
+        .stat-card {
+            flex:1; background:rgba(255,255,255,0.08);
+            backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+            border:2px solid rgba(255,255,255,0.15); border-radius:20px;
+            padding:10px 8px; text-align:center;
+        }
+        .stat-card.bump { animation:statBump 0.38s cubic-bezier(0.34,1.8,0.64,1); }
+        @keyframes statBump {
+            0%{transform:scale(1)} 50%{transform:scale(1.12)} 100%{transform:scale(1)}
+        }
+        .stat-icon  { font-size:1.4rem; }
+        .stat-value { font-size:1.9rem; font-weight:900; color:#ffd700;
+                      text-shadow:0 0 10px rgba(255,215,0,0.55); line-height:1.1; }
+        .stat-label { font-size:0.62rem; color:rgba(255,255,255,0.4);
+                      letter-spacing:2px; text-transform:uppercase; }
+
+        /* ── Emoji card ── */
+        .emoji-card {
+            width:100%; min-height:160px;
+            background:rgba(255,255,255,0.07);
+            backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+            border:2px solid rgba(255,255,255,0.12); border-radius:24px;
+            display:flex; align-items:center; justify-content:center;
+            padding:20px;
+        }
+        #emojiDisplay { font-size:7rem; line-height:1; }
+        #emojiDisplay.pop {
+            animation:popIn 0.45s cubic-bezier(0.34,1.6,0.64,1);
+        }
+        @keyframes popIn {
+            from{transform:scale(0.2) rotate(-15deg);opacity:0}
+            to{transform:scale(1) rotate(0deg);opacity:1}
+        }
+
+        /* ── Status bar ── */
+        .status-bar {
+            width:100%; background:rgba(255,255,255,0.1);
+            border:1.5px solid rgba(255,255,255,0.2); border-radius:50px;
+            padding:10px 20px; font-size:1rem; font-weight:700; text-align:center;
+            min-height:46px; display:flex; align-items:center; justify-content:center;
+            transition:background 0.3s, border-color 0.3s;
+        }
+        .status-bar.correct-flash {
+            background:rgba(52,211,153,0.22); border-color:rgba(52,211,153,0.55);
+        }
+
+        /* ── Letter buttons ── */
+        .letter-grid {
+            display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%;
+        }
+        .letter-btn {
+            height:90px; border-radius:22px; border:3px solid;
+            font-size:2.8rem; font-weight:900; color:white;
+            cursor:pointer; display:flex; align-items:center; justify-content:center;
+            transition:transform 0.12s; touch-action:manipulation;
+            user-select:none; -webkit-user-select:none;
+            /* color set via CSS custom property */
+            background:var(--bg); border-color:var(--bd);
+        }
+        .letter-btn:active:not([disabled]) { transform:scale(0.91); }
+
+        .letter-btn.correct {
+            background:rgba(52,211,153,0.55) !important; border-color:#34d399 !important;
+            animation:correctPop 0.45s cubic-bezier(0.34,1.6,0.64,1);
+        }
+        @keyframes correctPop {
+            0%{transform:scale(1)} 50%{transform:scale(1.14)} 100%{transform:scale(1)}
+        }
+        .letter-btn.wrong {
+            background:rgba(239,68,68,0.52) !important; border-color:#ef4444 !important;
+            animation:shake 0.4s ease;
+        }
+        @keyframes shake {
+            0%,100%{transform:translateX(0)}
+            20%{transform:translateX(-10px)} 40%{transform:translateX(10px)}
+            60%{transform:translateX(-7px)}  80%{transform:translateX(7px)}
+        }
+        .letter-btn.used {
+            background:rgba(255,255,255,0.04) !important;
+            border-color:rgba(255,255,255,0.08) !important;
+            color:rgba(255,255,255,0.18) !important;
+            pointer-events:none;
+        }
+
+        /* ── Hint button ── */
+        .hint-btn {
+            background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.65);
+            border:1.5px solid rgba(255,255,255,0.18); border-radius:50px;
+            padding:9px 24px; font-size:0.85rem; font-weight:700; cursor:pointer;
+            letter-spacing:0.5px; transition:all 0.2s; min-height:38px;
+        }
+        .hint-btn:active { background:rgba(255,255,255,0.2); transform:scale(0.96); }
+        .hint-btn.revealed {
+            background:rgba(255,215,0,0.12); border-color:rgba(255,215,0,0.4);
+            color:rgba(255,215,0,0.9);
+        }
+
+        /* ── Confetti ── */
+        .confetti-wrap { position:fixed; inset:0; pointer-events:none; z-index:99; overflow:hidden; }
+        .cp { position:absolute; top:-14px; animation:fall var(--fd) ease-in var(--del) forwards; }
+        @keyframes fall {
+            0%{transform:translateY(0) rotate(0deg);opacity:1}
+            100%{transform:translateY(110vh) rotate(720deg);opacity:0}
+        }
+    </style>
+</head>
+<body>
+
+<div class="stars"         id="stars"></div>
+<div class="confetti-wrap" id="confetti"></div>
+
+<div class="game">
+    <div class="top-bar">
+        <a class="back-btn" href="index.html">← Games</a>
+        <h1>🔤 First Letter</h1>
+        <div class="top-spacer"></div>
+    </div>
+
+    <div class="stats-row">
+        <div class="stat-card" id="scoreCard">
+            <div class="stat-icon">⭐</div>
+            <div class="stat-value" id="scoreVal">0</div>
+            <div class="stat-label">correct</div>
+        </div>
+        <div class="stat-card" id="streakCard">
+            <div class="stat-icon">🔥</div>
+            <div class="stat-value" id="streakVal">0</div>
+            <div class="stat-label">streak</div>
+        </div>
+    </div>
+
+    <div class="emoji-card">
+        <div id="emojiDisplay">🎉</div>
+    </div>
+
+    <div class="status-bar" id="statusBar">What letter does it start with?</div>
+
+    <div class="letter-grid" id="letterGrid"></div>
+
+    <button class="hint-btn" id="hintBtn" onclick="showHint()">💡 Need a hint?</button>
+</div>
+
+<script>
+/* ── Stars ── */
+const starsEl = document.getElementById('stars');
+for (let i = 0; i < 70; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const sz = (Math.random() * 2.5 + 0.8).toFixed(1);
+    s.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${(Math.random()*3+2).toFixed(1)}s;--delay:-${(Math.random()*5).toFixed(1)}s`;
+    starsEl.appendChild(s);
+}
+
+/* ── Emoji data ── */
+const EMOJIS = [
+    { e:'🍎', name:'Apple',    letter:'A' },
+    { e:'🎈', name:'Balloon',  letter:'B' },
+    { e:'🐻', name:'Bear',     letter:'B' },
+    { e:'🎂', name:'Cake',     letter:'C' },
+    { e:'🚗', name:'Car',      letter:'C' },
+    { e:'🐱', name:'Cat',      letter:'C' },
+    { e:'🐶', name:'Dog',      letter:'D' },
+    { e:'🐘', name:'Elephant', letter:'E' },
+    { e:'🐠', name:'Fish',     letter:'F' },
+    { e:'🐸', name:'Frog',     letter:'F' },
+    { e:'🦒', name:'Giraffe',  letter:'G' },
+    { e:'🏠', name:'House',    letter:'H' },
+    { e:'🍦', name:'Ice Cream',letter:'I' },
+    { e:'🦘', name:'Kangaroo', letter:'K' },
+    { e:'🦁', name:'Lion',     letter:'L' },
+    { e:'🌙', name:'Moon',     letter:'M' },
+    { e:'🍊', name:'Orange',   letter:'O' },
+    { e:'🐧', name:'Penguin',  letter:'P' },
+    { e:'🍕', name:'Pizza',    letter:'P' },
+    { e:'🌈', name:'Rainbow',  letter:'R' },
+    { e:'⭐', name:'Star',     letter:'S' },
+    { e:'🐢', name:'Turtle',   letter:'T' },
+    { e:'🚂', name:'Train',    letter:'T' },
+    { e:'🦄', name:'Unicorn',  letter:'U' },
+    { e:'🐋', name:'Whale',    letter:'W' },
+    { e:'🦓', name:'Zebra',    letter:'Z' },
+];
+
+// Four distinct colors for the four answer buttons (by position)
+const BTN_STYLES = [
+    { bg:'rgba(255,107,189,0.22)', bd:'rgba(255,107,189,0.7)' },
+    { bg:'rgba(56,189,248,0.22)',  bd:'rgba(56,189,248,0.7)'  },
+    { bg:'rgba(251,146,60,0.22)',  bd:'rgba(251,146,60,0.7)'  },
+    { bg:'rgba(168,85,247,0.22)',  bd:'rgba(168,85,247,0.7)'  },
+];
+
+const ALL_LETTERS = [...new Set(EMOJIS.map(x => x.letter))];
+
+/* ── State ── */
+let pool    = [];
+let poolIdx = 0;
+let score   = 0;
+let streak  = 0;
+let locked  = false;
+let current = null;
+
+/* ── Utilities ── */
+function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+function buildChoices(correct) {
+    const wrongs = shuffle(ALL_LETTERS.filter(l => l !== correct)).slice(0, 3);
+    return shuffle([correct, ...wrongs]);
+}
+
+/* ── Render ── */
+const emojiDisplay = document.getElementById('emojiDisplay');
+const statusBar    = document.getElementById('statusBar');
+const letterGrid   = document.getElementById('letterGrid');
+const hintBtn      = document.getElementById('hintBtn');
+
+function showEmoji() {
+    if (poolIdx >= pool.length) {
+        pool    = shuffle(EMOJIS);
+        poolIdx = 0;
+    }
+    current = pool[poolIdx];
+    locked  = false;
+
+    emojiDisplay.classList.remove('pop');
+    void emojiDisplay.offsetWidth;
+    emojiDisplay.textContent = current.e;
+    emojiDisplay.classList.add('pop');
+
+    statusBar.textContent = 'What letter does it start with?';
+    statusBar.classList.remove('correct-flash');
+
+    hintBtn.textContent = '💡 Need a hint?';
+    hintBtn.classList.remove('revealed');
+
+    const choices = buildChoices(current.letter);
+    letterGrid.innerHTML = '';
+    choices.forEach((letter, i) => {
+        const { bg, bd } = BTN_STYLES[i];
+        const btn = document.createElement('button');
+        btn.className = 'letter-btn';
+        btn.textContent = letter;
+        btn.style.setProperty('--bg', bg);
+        btn.style.setProperty('--bd', bd);
+        btn.addEventListener('click', () => onTap(btn, letter));
+        letterGrid.appendChild(btn);
+    });
+}
+
+/* ── Handle letter tap ── */
+function onTap(btn, letter) {
+    if (locked || btn.disabled) return;
+
+    if (letter === current.letter) {
+        locked = true;
+        btn.classList.add('correct');
+        score++;
+        streak++;
+        document.getElementById('scoreVal').textContent  = score;
+        document.getElementById('streakVal').textContent = streak;
+        bump('scoreCard');
+        if (streak > 1) bump('streakCard');
+
+        statusBar.textContent = `🎉 ${current.name} starts with ${current.letter}!`;
+        statusBar.classList.add('correct-flash');
+        hintBtn.textContent = '';
+
+        letterGrid.querySelectorAll('.letter-btn').forEach(b => { b.disabled = true; });
+        miniConfetti();
+        setTimeout(() => { poolIdx++; showEmoji(); }, 1600);
+
+    } else {
+        btn.disabled = true;
+        btn.classList.add('wrong');
+        streak = 0;
+        document.getElementById('streakVal').textContent = 0;
+        statusBar.textContent = 'Not quite — try again! 🤔';
+        setTimeout(() => {
+            btn.classList.remove('wrong');
+            btn.classList.add('used');
+        }, 420);
+    }
+}
+
+/* ── Hint ── */
+function showHint() {
+    if (!current || locked) return;
+    hintBtn.textContent = `It's a ${current.name}!`;
+    hintBtn.classList.add('revealed');
+}
+
+/* ── Stat bump ── */
+function bump(id) {
+    const el = document.getElementById(id);
+    el.classList.remove('bump');
+    void el.offsetWidth;
+    el.classList.add('bump');
+}
+
+/* ── Mini confetti ── */
+function miniConfetti() {
+    const wrap   = document.getElementById('confetti');
+    wrap.innerHTML = '';
+    const colors = ['#ffd700','#ff6bbd','#a855f7','#38bdf8','#34d399','#fb923c'];
+    for (let i = 0; i < 36; i++) {
+        const p  = document.createElement('div');
+        p.className = 'cp';
+        const w  = Math.random() * 9 + 5;
+        const h  = Math.random() * 9 + 5;
+        const br = Math.random() > 0.5 ? '50%' : '2px';
+        p.style.cssText = `left:${Math.random()*100}%;width:${w}px;height:${h}px;background:${colors[i%colors.length]};border-radius:${br};--fd:${(Math.random()*1+0.8).toFixed(2)}s;--del:${(Math.random()*.25).toFixed(2)}s`;
+        wrap.appendChild(p);
+    }
+}
+
+/* ── Start ── */
+pool = shuffle(EMOJIS);
+showEmoji();
+</script>
+</body>
+</html>

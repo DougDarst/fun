@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>✏️ Dot Art — Ellie & Grandpa</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+        body {
+            min-height:100vh; min-height:100dvh;
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Rounded,sans-serif;
+            background:linear-gradient(135deg,#1a0040,#0a1560,#2d0060,#0a1560,#1a0040);
+            background-size:400% 400%;
+            animation:bgShift 12s ease infinite;
+            display:flex; flex-direction:column; align-items:center;
+            padding:14px 14px 20px;
+            overflow-x:hidden; color:white;
+        }
+        @keyframes bgShift {
+            0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%}
+        }
+
+        .stars { position:fixed; inset:0; pointer-events:none; z-index:0; }
+        .star {
+            position:absolute; background:white; border-radius:50%;
+            animation:twinkle var(--d) ease-in-out infinite var(--delay); opacity:0;
+        }
+        @keyframes twinkle {
+            0%,100%{opacity:0;transform:scale(0.4)} 50%{opacity:0.9;transform:scale(1)}
+        }
+
+        .game {
+            position:relative; z-index:1; width:100%; max-width:420px;
+            display:flex; flex-direction:column; align-items:center; gap:12px;
+        }
+
+        .top-bar { width:100%; display:flex; align-items:center; gap:10px; }
+        .back-btn {
+            background:rgba(255,255,255,0.12); border:1.5px solid rgba(255,255,255,0.2);
+            color:white; border-radius:50px; padding:8px 14px; font-size:0.82rem;
+            font-weight:700; cursor:pointer; white-space:nowrap; flex-shrink:0;
+            text-decoration:none; transition:background 0.2s; letter-spacing:0.5px;
+        }
+        .back-btn:active { background:rgba(255,255,255,0.22); }
+        h1 {
+            flex:1; text-align:center; font-size:1.35rem; font-weight:900;
+            text-shadow:0 0 20px rgba(255,200,80,0.8); letter-spacing:1px;
+        }
+        .top-spacer { flex-shrink:0; width:74px; }
+
+        .stat-bar {
+            width:100%; background:rgba(255,255,255,0.1);
+            border:1.5px solid rgba(255,255,255,0.2); border-radius:50px;
+            padding:10px 20px; font-size:0.95rem; font-weight:700; text-align:center;
+            min-height:44px; display:flex; align-items:center; justify-content:center;
+        }
+        .stat-num { color:#ffd700; font-size:1.2rem; font-weight:900; }
+
+        .canvas-wrap {
+            width:100%; aspect-ratio:1; position:relative;
+            border-radius:20px; overflow:hidden;
+            background:rgba(0,0,0,0.28);
+            border:2px solid rgba(255,255,255,0.1);
+        }
+        #canvas { width:100%; height:100%; display:block; touch-action:none; }
+
+        .picture-row { display:flex; gap:8px; width:100%; }
+        .pic-btn {
+            flex:1; background:rgba(255,255,255,0.1);
+            border:2px solid rgba(255,255,255,0.2);
+            color:white; border-radius:14px; padding:8px 4px;
+            font-weight:700; cursor:pointer;
+            display:flex; flex-direction:column; align-items:center; gap:2px;
+            transition:all 0.2s;
+        }
+        .pic-btn:active { transform:scale(0.92); }
+        .pic-btn.active {
+            background:rgba(255,215,0,0.2); border-color:#ffd700;
+            box-shadow:0 0 14px rgba(255,215,0,0.3);
+        }
+        .pic-icon  { font-size:1.4rem; }
+        .pic-label { font-size:0.68rem; opacity:0.85; }
+
+        .new-game-btn {
+            background:rgba(255,255,255,0.12); color:white;
+            border:2px solid rgba(255,255,255,0.28); border-radius:50px;
+            padding:11px 32px; font-size:0.95rem; font-weight:800; cursor:pointer;
+            letter-spacing:1.5px; transition:all 0.2s;
+        }
+        .new-game-btn:active { transform:scale(0.94); background:rgba(255,255,255,0.22); }
+
+        .overlay {
+            position:fixed; inset:0; background:rgba(5,0,20,0.80);
+            backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+            display:flex; align-items:center; justify-content:center;
+            z-index:100; opacity:0; pointer-events:none; transition:opacity 0.4s;
+        }
+        .overlay.show { opacity:1; pointer-events:all; }
+        .result-card {
+            background:linear-gradient(145deg,rgba(50,0,90,0.97),rgba(10,15,80,0.97));
+            border:2.5px solid rgba(255,215,0,0.55); border-radius:30px;
+            padding:36px 28px 30px; text-align:center; max-width:320px; width:88%;
+            box-shadow:0 0 60px rgba(255,215,0,0.2),0 24px 60px rgba(0,0,0,0.6);
+            animation:cardIn 0.5s cubic-bezier(0.34,1.5,0.64,1);
+        }
+        @keyframes cardIn {
+            from{transform:scale(0.55) translateY(50px);opacity:0}
+            to{transform:scale(1) translateY(0);opacity:1}
+        }
+        .r-emoji {
+            font-size:5rem; display:block; margin-bottom:8px;
+            animation:bounceIn 0.6s cubic-bezier(0.34,1.6,0.64,1);
+        }
+        @keyframes bounceIn {
+            from{transform:scale(0.3) rotate(-15deg)} to{transform:scale(1) rotate(0deg)}
+        }
+        .r-title {
+            font-size:1.8rem; font-weight:900; color:#ffd700;
+            text-shadow:0 0 20px rgba(255,215,0,0.7); margin-bottom:6px;
+        }
+        .r-msg { font-size:0.9rem; color:rgba(255,255,255,0.7); margin-bottom:24px; line-height:1.5; }
+        .play-again-btn {
+            background:linear-gradient(135deg,#ffd700,#ff8800); color:#1a0033;
+            border:none; border-radius:50px; padding:14px 36px;
+            font-size:1.1rem; font-weight:900; cursor:pointer;
+            box-shadow:0 6px 24px rgba(255,140,0,0.5); letter-spacing:1px;
+            transition:transform 0.15s;
+        }
+        .play-again-btn:active { transform:scale(0.92); }
+
+        .confetti-wrap { position:fixed; inset:0; pointer-events:none; z-index:99; overflow:hidden; }
+        .cp { position:absolute; top:-14px; animation:fall var(--fd) ease-in var(--del) forwards; }
+        @keyframes fall {
+            0%{transform:translateY(0) rotate(0deg);opacity:1}
+            100%{transform:translateY(110vh) rotate(720deg);opacity:0}
+        }
+    </style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+<div class="confetti-wrap" id="confetti"></div>
+
+<div class="overlay" id="overlay">
+    <div class="result-card">
+        <span class="r-emoji" id="rEmoji">🌟</span>
+        <div class="r-title" id="rTitle">You did it!</div>
+        <div class="r-msg"   id="rMsg"></div>
+        <button class="play-again-btn" onclick="nextPicture()">Next Picture! 🎨</button>
+    </div>
+</div>
+
+<div class="game">
+    <div class="top-bar">
+        <a class="back-btn" href="index.html">← Games</a>
+        <h1>✏️ Dot Art</h1>
+        <div class="top-spacer"></div>
+    </div>
+
+    <div class="stat-bar" id="statBar">Loading…</div>
+
+    <div class="canvas-wrap">
+        <canvas id="canvas" width="400" height="400"></canvas>
+    </div>
+
+    <div class="picture-row" id="picRow"></div>
+
+    <button class="new-game-btn" onclick="resetGame()">🔄 Start Over</button>
+</div>
+
+<script>
+/* ── Stars ── */
+const starsEl = document.getElementById('stars');
+for (let i = 0; i < 70; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const sz = (Math.random() * 2.5 + 0.8).toFixed(1);
+    s.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${(Math.random()*3+2).toFixed(1)}s;--delay:-${(Math.random()*5).toFixed(1)}s`;
+    starsEl.appendChild(s);
+}
+
+/* ── Picture data (400×400 coordinate space) ── */
+const PICS = [
+    {
+        name: 'Star', emoji: '⭐', color: '#ffd700', fill: 'rgba(255,215,0,0.30)',
+        // 10 dots: alternating outer tips and inner concave points, clockwise from top
+        dots: [
+            [200, 40],  // 1 top tip
+            [236,140],  // 2 inner upper-right
+            [343,144],  // 3 right tip
+            [259,209],  // 4 inner right
+            [288,311],  // 5 lower-right tip
+            [200,252],  // 6 inner bottom
+            [112,311],  // 7 lower-left tip
+            [141,209],  // 8 inner left
+            [ 57,144],  // 9 left tip
+            [164,140]   // 10 inner upper-left
+        ]
+    },
+    {
+        name: 'Heart', emoji: '❤️', color: '#ff6bbd', fill: 'rgba(255,107,189,0.28)',
+        // 16 dots tracing heart outline clockwise from top-center dip
+        dots: [
+            [200,132],  // 1 top center dip
+            [230, 86],  // 2 right slope up
+            [278, 72],  // 3 right top
+            [328, 92],  // 4 right outer
+            [355,142],  // 5 right side
+            [350,200],  // 6 right middle
+            [310,260],  // 7 right lower
+            [260,310],  // 8 right toward bottom
+            [200,360],  // 9 bottom tip
+            [140,310],  // 10 left toward bottom
+            [ 90,260],  // 11 left lower
+            [ 50,200],  // 12 left middle
+            [ 45,142],  // 13 left side
+            [ 72, 92],  // 14 left outer
+            [122, 72],  // 15 left top
+            [170, 86]   // 16 left slope up
+        ]
+    },
+    {
+        name: 'Butterfly', emoji: '🦋', color: '#c084fc', fill: 'rgba(192,132,252,0.22)',
+        // 20 dots: body-top → left wings (upper then lower) → body-bottom → right wings → back
+        dots: [
+            [200,108],  // 1  body top
+            [158, 84],  // 2  upper-left inner
+            [ 78, 44],  // 3  upper-left tip
+            [ 28,106],  // 4  left outer
+            [ 42,182],  // 5  lower-left outer
+            [102,222],  // 6  lower-left wing
+            [142,282],  // 7  lower-left lower
+            [ 98,342],  // 8  lower-left tip
+            [152,318],  // 9  lower-left inner bottom
+            [182,258],  // 10 lower-left toward body
+            [200,298],  // 11 body bottom
+            [218,258],  // 12 lower-right toward body
+            [248,318],  // 13 lower-right inner bottom
+            [302,342],  // 14 lower-right tip
+            [258,282],  // 15 lower-right lower
+            [298,222],  // 16 lower-right wing
+            [358,182],  // 17 right outer
+            [372,106],  // 18 upper-right outer
+            [322, 44],  // 19 upper-right tip
+            [242, 84]   // 20 upper-right inner
+        ]
+    },
+    {
+        name: 'Unicorn', emoji: '🦄', color: '#e879f9', fill: 'rgba(232,121,249,0.22)',
+        // 16 dots: horn tip → clockwise around head → ears → back to horn
+        dots: [
+            [200, 22],  // 1  horn tip
+            [228, 72],  // 2  right horn base
+            [268, 66],  // 3  right ear outer tip
+            [256, 96],  // 4  right ear inner base
+            [282,132],  // 5  right temple
+            [286,172],  // 6  right cheek
+            [274,214],  // 7  right muzzle
+            [254,244],  // 8  lower right jaw
+            [200,274],  // 9  chin
+            [146,244],  // 10 lower left jaw
+            [126,214],  // 11 left muzzle
+            [114,172],  // 12 left cheek
+            [118,132],  // 13 left temple
+            [144, 96],  // 14 left ear inner base
+            [132, 66],  // 15 left ear outer tip
+            [172, 72]   // 16 left horn base
+        ]
+    }
+];
+
+/* ── Game state ── */
+let picIdx  = 0;
+let nextDot = 0;
+let done    = false;
+let tick    = 0;
+
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+const HIT    = 50;  // generous touch radius in canvas units
+
+/* ── Draw ── */
+function draw() {
+    const pic  = PICS[picIdx];
+    const dots = pic.dots;
+    ctx.clearRect(0, 0, 400, 400);
+
+    // Draw completed line segments
+    if (nextDot >= 1) {
+        ctx.beginPath();
+        ctx.moveTo(dots[0][0], dots[0][1]);
+        for (let i = 1; i < nextDot; i++) ctx.lineTo(dots[i][0], dots[i][1]);
+        if (done) {
+            ctx.closePath();
+            ctx.fillStyle = pic.fill;
+            ctx.fill('evenodd');
+        }
+        ctx.strokeStyle = pic.color;
+        ctx.lineWidth   = 5;
+        ctx.lineCap     = 'round';
+        ctx.lineJoin    = 'round';
+        ctx.stroke();
+    }
+
+    // Draw dots (hidden when complete to reveal clean shape)
+    if (!done) {
+        dots.forEach(([x, y], i) => {
+            const connected = i < nextDot;
+            const isNext    = i === nextDot;
+            const r         = isNext ? 15 : 10;
+
+            // Pulsing glow on next dot
+            if (isNext) {
+                const glow = 20 + 8 * Math.sin(tick * 0.12);
+                const g = ctx.createRadialGradient(x, y, 0, x, y, glow + 8);
+                g.addColorStop(0, 'rgba(255,255,255,0.6)');
+                g.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.beginPath();
+                ctx.arc(x, y, glow + 8, 0, Math.PI * 2);
+                ctx.fillStyle = g;
+                ctx.fill();
+            }
+
+            // Dot fill
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fillStyle = connected ? pic.color
+                          : isNext    ? '#ffffff'
+                          :             'rgba(255,255,255,0.38)';
+            ctx.fill();
+
+            // Dot border
+            if (!connected) {
+                ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+                ctx.lineWidth   = 2;
+                ctx.stroke();
+            }
+
+            // Number label
+            ctx.fillStyle       = connected ? '#fff' : isNext ? '#1a0033' : 'rgba(255,255,255,0.9)';
+            ctx.font            = `bold ${isNext ? 13 : 11}px -apple-system,sans-serif`;
+            ctx.textAlign       = 'center';
+            ctx.textBaseline    = 'middle';
+            ctx.fillText(i + 1, x, y);
+        });
+    } else {
+        // Show big emoji centered on finished shape
+        ctx.font          = '80px serif';
+        ctx.textAlign     = 'center';
+        ctx.textBaseline  = 'middle';
+        ctx.globalAlpha   = 0.88;
+        ctx.fillText(pic.emoji, 200, 200);
+        ctx.globalAlpha   = 1;
+    }
+}
+
+function loop() {
+    tick++;
+    draw();
+    requestAnimationFrame(loop);
+}
+
+/* ── Input ── */
+function canvasXY(e) {
+    const r  = canvas.getBoundingClientRect();
+    const sx = 400 / r.width;
+    const sy = 400 / r.height;
+    const src = e.touches ? e.touches[0] : e;
+    return [(src.clientX - r.left) * sx, (src.clientY - r.top) * sy];
+}
+
+function onTap(e) {
+    e.preventDefault();
+    if (done) return;
+    const dots = PICS[picIdx].dots;
+    if (nextDot >= dots.length) return;
+    const [tx, ty] = canvasXY(e);
+    const [dx, dy] = dots[nextDot];
+    if (Math.hypot(tx - dx, ty - dy) <= HIT) {
+        nextDot++;
+        if (nextDot >= dots.length) {
+            done = true;
+            updateStat();
+            setTimeout(showWin, 800);
+        } else {
+            updateStat();
+        }
+    }
+}
+
+canvas.addEventListener('touchstart', onTap, { passive: false });
+canvas.addEventListener('click',      onTap);
+
+/* ── Stat bar ── */
+function updateStat() {
+    const pic = PICS[picIdx];
+    const n   = pic.dots.length;
+    const sb  = document.getElementById('statBar');
+    if (nextDot === 0) {
+        sb.innerHTML = `Draw a ${pic.emoji} ${pic.name}! Tap dot <span class="stat-num">1</span>`;
+    } else if (done) {
+        sb.innerHTML = `🎉 <span class="stat-num">Done!</span> You drew a ${pic.name}!`;
+    } else {
+        sb.innerHTML = `Tap dot <span class="stat-num">${nextDot + 1}</span> &nbsp;·&nbsp; ${nextDot} of ${n} connected`;
+    }
+}
+
+/* ── Win ── */
+function showWin() {
+    const pic = PICS[picIdx];
+    document.getElementById('rEmoji').textContent = pic.emoji;
+    document.getElementById('rTitle').textContent = `You drew a ${pic.name}!`;
+    document.getElementById('rMsg').textContent   =
+        `Wow! You connected all ${pic.dots.length} dots!\nAmazing artist! 🌟`;
+    document.getElementById('overlay').classList.add('show');
+    launchConfetti();
+}
+
+/* ── Picture buttons ── */
+const picRow = document.getElementById('picRow');
+PICS.forEach((pic, i) => {
+    const btn = document.createElement('button');
+    btn.className = `pic-btn${i === 0 ? ' active' : ''}`;
+    btn.innerHTML = `<span class="pic-icon">${pic.emoji}</span><span class="pic-label">${pic.name}</span>`;
+    btn.addEventListener('click', () => {
+        picIdx = i;
+        document.querySelectorAll('.pic-btn').forEach((b, j) =>
+            b.classList.toggle('active', j === i));
+        resetGame();
+    });
+    picRow.appendChild(btn);
+});
+
+/* ── Reset / next picture ── */
+function resetGame() {
+    nextDot = 0;
+    done    = false;
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('confetti').innerHTML = '';
+    updateStat();
+}
+
+function nextPicture() {
+    picIdx = (picIdx + 1) % PICS.length;
+    document.querySelectorAll('.pic-btn').forEach((b, j) =>
+        b.classList.toggle('active', j === picIdx));
+    resetGame();
+}
+
+/* ── Confetti ── */
+function launchConfetti() {
+    const wrap   = document.getElementById('confetti');
+    wrap.innerHTML = '';
+    const colors = ['#ffd700','#ff6bbd','#a855f7','#38bdf8','#34d399','#fb923c','#f43f5e'];
+    for (let i = 0; i < 90; i++) {
+        const p  = document.createElement('div');
+        p.className = 'cp';
+        const w  = Math.random() * 10 + 6;
+        const h  = Math.random() * 10 + 6;
+        const br = Math.random() > 0.5 ? '50%' : '2px';
+        p.style.cssText = `left:${Math.random()*100}%;width:${w}px;height:${h}px;background:${colors[i%colors.length]};border-radius:${br};--fd:${(Math.random()*2+1.5).toFixed(2)}s;--del:${(Math.random()*.8).toFixed(2)}s`;
+        wrap.appendChild(p);
+    }
+}
+
+/* ── Start ── */
+updateStat();
+loop();
+</script>
+</body>
+</html>

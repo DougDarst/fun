@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🔢 Count It! — Ellie's Games</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            min-height: 100vh;
+            min-height: 100dvh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Rounded, sans-serif;
+            background: linear-gradient(135deg, #1a0040, #0a1560, #2d0060, #0a1560, #1a0040);
+            background-size: 400% 400%;
+            animation: bgShift 12s ease infinite;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 14px 14px 20px;
+            overflow-x: hidden;
+            color: white;
+        }
+
+        @keyframes bgShift {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Stars */
+        .stars {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle var(--d) ease-in-out infinite var(--delay);
+            opacity: 0;
+        }
+        @keyframes twinkle {
+            0%, 100% { opacity: 0;   transform: scale(0.4); }
+            50%       { opacity: 0.9; transform: scale(1);   }
+        }
+
+        /* Layout */
+        .game {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 420px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Top bar */
+        .top-bar {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .back-btn {
+            background: rgba(255,255,255,0.12);
+            border: 1.5px solid rgba(255,255,255,0.2);
+            color: white;
+            border-radius: 50px;
+            padding: 8px 14px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            flex-shrink: 0;
+            text-decoration: none;
+            transition: background 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .back-btn:active { background: rgba(255,255,255,0.22); }
+        h1 {
+            flex: 1;
+            text-align: center;
+            font-size: 1.45rem;
+            font-weight: 900;
+            text-shadow: 0 0 20px rgba(255,200,80,0.8);
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+        .top-spacer { flex-shrink: 0; width: 74px; }
+
+        /* Score row */
+        .score-row {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+        .stat-card {
+            flex: 1;
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 2px solid rgba(255,255,255,0.15);
+            border-radius: 20px;
+            padding: 10px 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.9rem;
+            font-weight: 900;
+            color: #ffd700;
+            text-shadow: 0 0 10px rgba(255,215,0,0.55);
+            line-height: 1.1;
+        }
+        .stat-label {
+            font-size: 0.62rem;
+            color: rgba(255,255,255,0.4);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* Question prompt */
+        .prompt {
+            width: 100%;
+            background: rgba(255,255,255,0.1);
+            border: 1.5px solid rgba(255,255,255,0.2);
+            border-radius: 50px;
+            padding: 10px 20px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            letter-spacing: 0.4px;
+        }
+
+        /* Emoji stage */
+        .emoji-stage {
+            width: 100%;
+            background: rgba(255,255,255,0.07);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 2px solid rgba(255,255,255,0.14);
+            border-radius: 24px;
+            padding: 16px;
+            min-height: 170px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            position: relative;
+        }
+        .emoji-stage.shake {
+            animation: shake 0.45s ease;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%       { transform: translateX(-8px); }
+            40%       { transform: translateX(8px); }
+            60%       { transform: translateX(-6px); }
+            80%       { transform: translateX(6px); }
+        }
+
+        .obj {
+            font-size: 2.8rem;
+            line-height: 1;
+            animation: popIn 0.3s cubic-bezier(0.34, 1.6, 0.64, 1) var(--pop-delay, 0s) both;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .obj.small { font-size: 2.1rem; }
+
+        @keyframes popIn {
+            from { transform: scale(0) rotate(-20deg); opacity: 0; }
+            to   { transform: scale(1) rotate(0deg);   opacity: 1; }
+        }
+
+        /* Feedback */
+        .feedback {
+            font-size: 1.4rem;
+            font-weight: 900;
+            text-align: center;
+            min-height: 2rem;
+            letter-spacing: 0.5px;
+        }
+        .feedback.correct-fb { color: #4ade80; }
+        .feedback.wrong-fb   { color: #f87171; }
+
+        /* Answer buttons */
+        .answers {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            width: 100%;
+        }
+        .ans-btn {
+            background: rgba(255,255,255,0.12);
+            border: 2.5px solid rgba(255,255,255,0.25);
+            border-radius: 24px;
+            padding: 14px 10px;
+            font-size: 2.4rem;
+            font-weight: 900;
+            color: white;
+            cursor: pointer;
+            text-align: center;
+            transition: transform 0.15s cubic-bezier(0.34, 1.5, 0.64, 1), background 0.2s;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+            line-height: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+        .ans-btn span.num-word {
+            font-size: 0.7rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.5);
+        }
+        .ans-btn:active { transform: scale(0.9); }
+        .ans-btn.correct {
+            background: rgba(80, 255, 120, 0.3);
+            border-color: #4ade80;
+            box-shadow: 0 0 24px rgba(74, 222, 128, 0.5);
+            animation: correctPop 0.4s cubic-bezier(0.34, 1.6, 0.64, 1);
+        }
+        .ans-btn.wrong {
+            background: rgba(255, 80, 80, 0.25);
+            border-color: #f87171;
+            animation: wrongShake 0.4s ease;
+        }
+        .ans-btn:disabled { pointer-events: none; }
+
+        @keyframes correctPop {
+            0%   { transform: scale(1);    }
+            40%  { transform: scale(1.15); }
+            100% { transform: scale(1);    }
+        }
+        @keyframes wrongShake {
+            0%, 100% { transform: translateX(0); }
+            25%       { transform: translateX(-6px); }
+            75%       { transform: translateX(6px); }
+        }
+
+        /* New game button */
+        .new-game-btn {
+            background: rgba(255,255,255,0.12);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.28);
+            border-radius: 50px;
+            padding: 11px 32px;
+            font-size: 0.95rem;
+            font-weight: 800;
+            cursor: pointer;
+            letter-spacing: 1.5px;
+            transition: all 0.2s;
+        }
+        .new-game-btn:active {
+            transform: scale(0.94);
+            background: rgba(255,255,255,0.22);
+        }
+
+        /* Overlay */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(5,0,20,0.80);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+        .overlay.show { opacity: 1; pointer-events: all; }
+
+        .result-card {
+            background: linear-gradient(145deg, rgba(50,0,90,0.97), rgba(10,15,80,0.97));
+            border: 2.5px solid rgba(255,215,0,0.55);
+            border-radius: 30px;
+            padding: 36px 28px 30px;
+            text-align: center;
+            max-width: 320px;
+            width: 88%;
+            box-shadow: 0 0 60px rgba(255,215,0,0.2), 0 24px 60px rgba(0,0,0,0.6);
+            animation: cardIn 0.5s cubic-bezier(0.34, 1.5, 0.64, 1);
+        }
+        @keyframes cardIn {
+            from { transform: scale(0.55) translateY(50px); opacity: 0; }
+            to   { transform: scale(1)    translateY(0);    opacity: 1; }
+        }
+        .result-big-emoji {
+            font-size: 5rem;
+            display: block;
+            margin-bottom: 8px;
+            animation: bounceIn 0.55s cubic-bezier(0.34, 1.6, 0.64, 1);
+        }
+        @keyframes bounceIn {
+            from { transform: scale(0.3) rotate(-20deg); }
+            to   { transform: scale(1)   rotate(0deg);   }
+        }
+        .result-title {
+            font-size: 2rem;
+            font-weight: 900;
+            color: #ffd700;
+            text-shadow: 0 0 20px rgba(255,215,0,0.7);
+            margin-bottom: 6px;
+        }
+        .result-msg {
+            font-size: 1rem;
+            color: rgba(255,255,255,0.75);
+            margin-bottom: 26px;
+            line-height: 1.5;
+        }
+        .play-again-btn {
+            background: linear-gradient(135deg, #ffd700, #ff8800);
+            color: #1a0033;
+            border: none;
+            border-radius: 50px;
+            padding: 16px 40px;
+            font-size: 1.15rem;
+            font-weight: 900;
+            cursor: pointer;
+            box-shadow: 0 6px 24px rgba(255,140,0,0.5);
+            letter-spacing: 1px;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .play-again-btn:active {
+            transform: scale(0.93);
+            box-shadow: 0 3px 12px rgba(255,140,0,0.35);
+        }
+
+        /* Confetti */
+        .confetti-wrap {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 99;
+            overflow: hidden;
+        }
+        .cp {
+            position: absolute;
+            top: -14px;
+            animation: fall var(--fd) ease-in var(--del) forwards;
+        }
+        @keyframes fall {
+            0%   { transform: translateY(0)     rotate(0deg);   opacity: 1; }
+            100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+<div class="confetti-wrap" id="confetti"></div>
+
+<div class="overlay" id="overlay">
+    <div class="result-card">
+        <span class="result-big-emoji" id="rEmoji">🌟</span>
+        <div class="result-title" id="rTitle">Amazing!</div>
+        <div class="result-msg"   id="rMsg"></div>
+        <button class="play-again-btn" onclick="dismissOverlay()">Keep Going! 🎮</button>
+    </div>
+</div>
+
+<div class="game">
+
+    <div class="top-bar">
+        <a class="back-btn" href="index.html">← Games</a>
+        <h1>🔢 Count It!</h1>
+        <div class="top-spacer"></div>
+    </div>
+
+    <div class="score-row">
+        <div class="stat-card">
+            <div class="stat-value" id="scoreVal">0</div>
+            <div class="stat-label">⭐ Stars</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="streakVal">0</div>
+            <div class="stat-label">🔥 Streak</div>
+        </div>
+    </div>
+
+    <div class="prompt" id="prompt">How many do you see? 👀</div>
+
+    <div class="emoji-stage" id="stage"></div>
+
+    <div class="feedback" id="feedback">&nbsp;</div>
+
+    <div class="answers" id="answers"></div>
+
+    <button class="new-game-btn" onclick="newGame()">🔄 New Game</button>
+
+</div>
+
+<script>
+    /* Stars */
+    const starsEl = document.getElementById('stars');
+    for (let i = 0; i < 70; i++) {
+        const s = document.createElement('div');
+        s.className = 'star';
+        const sz = (Math.random() * 2.5 + 0.8).toFixed(1);
+        s.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${(Math.random()*3+2).toFixed(1)}s;--delay:-${(Math.random()*5).toFixed(1)}s`;
+        starsEl.appendChild(s);
+    }
+
+    const WORDS = ['', 'ONE','TWO','THREE','FOUR','FIVE','SIX','SEVEN','EIGHT','NINE','TEN'];
+
+    const POOLS = [
+        { emoji: '🐱', label: 'cats' },
+        { emoji: '🐶', label: 'dogs' },
+        { emoji: '🐰', label: 'bunnies' },
+        { emoji: '🦊', label: 'foxes' },
+        { emoji: '🐸', label: 'frogs' },
+        { emoji: '🐙', label: 'octopuses' },
+        { emoji: '🦋', label: 'butterflies' },
+        { emoji: '🍎', label: 'apples' },
+        { emoji: '🍊', label: 'oranges' },
+        { emoji: '🍓', label: 'strawberries' },
+        { emoji: '⭐', label: 'stars' },
+        { emoji: '🎈', label: 'balloons' },
+        { emoji: '🌸', label: 'flowers' },
+        { emoji: '🍭', label: 'lollipops' },
+        { emoji: '🦄', label: 'unicorns' },
+        { emoji: '🐠', label: 'fish' },
+        { emoji: '🌈', label: 'rainbows' },
+        { emoji: '🍄', label: 'mushrooms' },
+    ];
+
+    const CORRECT_MSGS = [
+        '🎉 Amazing!', '⭐ Superstar!', '🌟 You got it!',
+        '🎊 Brilliant!', '🥳 Fantastic!', '💫 Perfect!',
+        '🌈 Wow!', '🏆 Yes! Great job!', '🎀 So smart!',
+    ];
+    const WRONG_MSGS = ['🤔 Try again!', '💪 Keep trying!', '🙂 Almost! Count again!'];
+
+    const STREAK_EMOJIS = ['🌟','🎊','🏆','🦄','🎉','🌈','💫'];
+
+    let score  = 0;
+    let streak = 0;
+    let correctAnswer = 0;
+    let busy = false;
+
+    const stageEl    = document.getElementById('stage');
+    const answersEl  = document.getElementById('answers');
+    const feedbackEl = document.getElementById('feedback');
+    const promptEl   = document.getElementById('prompt');
+
+    function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+    function shuffle(arr) {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+    }
+
+    function generateAnswers(correct) {
+        const options = new Set([correct]);
+        // Alternate candidates: closest numbers first (e.g. correct±1, correct±2 …)
+        for (let d = 1; d <= 9 && options.size < 4; d++) {
+            if (correct - d >= 1)  options.add(correct - d);
+            if (options.size < 4 && correct + d <= 10) options.add(correct + d);
+        }
+        return shuffle([...options]);
+    }
+
+    function startRound() {
+        busy = false;
+        feedbackEl.textContent = ' ';
+        feedbackEl.className = 'feedback';
+
+        const count = Math.floor(Math.random() * 10) + 1;
+        const pool  = pick(POOLS);
+        correctAnswer = count;
+
+        promptEl.textContent = `How many ${pool.label} do you see? 👀`;
+
+        // Build emoji stage
+        stageEl.innerHTML = '';
+        stageEl.classList.remove('shake');
+        const small = count >= 7;
+        for (let i = 0; i < count; i++) {
+            const el = document.createElement('div');
+            el.className = 'obj' + (small ? ' small' : '');
+            el.textContent = pool.emoji;
+            el.style.setProperty('--pop-delay', `${i * 0.06}s`);
+            stageEl.appendChild(el);
+        }
+
+        // Build answer buttons
+        const options = generateAnswers(count);
+        answersEl.innerHTML = '';
+        options.forEach(n => {
+            const btn = document.createElement('button');
+            btn.className = 'ans-btn';
+            btn.innerHTML = `${n}<span class="num-word">${WORDS[n]}</span>`;
+            btn.addEventListener('click', () => handleAnswer(n, btn));
+            answersEl.appendChild(btn);
+        });
+    }
+
+    function handleAnswer(n, btn) {
+        if (busy) return;
+
+        if (n === correctAnswer) {
+            busy = true;
+            btn.classList.add('correct');
+            score++;
+            streak++;
+            document.getElementById('scoreVal').textContent  = score;
+            document.getElementById('streakVal').textContent = streak;
+            feedbackEl.textContent = pick(CORRECT_MSGS);
+            feedbackEl.className = 'feedback correct-fb';
+            answersEl.querySelectorAll('.ans-btn').forEach(b => b.disabled = true);
+
+            if (streak % 5 === 0) {
+                setTimeout(() => {
+                    launchConfetti();
+                    const idx = Math.floor(streak / 5 - 1) % STREAK_EMOJIS.length;
+                    document.getElementById('rEmoji').textContent = STREAK_EMOJIS[idx];
+                    document.getElementById('rTitle').textContent = `${streak} in a row!`;
+                    document.getElementById('rMsg').textContent =
+                        `You counted ${streak} right! You're a counting superstar! ⭐`;
+                    document.getElementById('overlay').classList.add('show');
+                }, 900);
+            } else {
+                setTimeout(startRound, 1300);
+            }
+        } else {
+            // Wrong — shake and let them try again
+            btn.classList.add('wrong');
+            streak = 0;
+            document.getElementById('streakVal').textContent = 0;
+            feedbackEl.textContent = pick(WRONG_MSGS);
+            feedbackEl.className = 'feedback wrong-fb';
+            stageEl.classList.add('shake');
+            setTimeout(() => {
+                btn.classList.remove('wrong');
+                stageEl.classList.remove('shake');
+            }, 500);
+        }
+    }
+
+    function dismissOverlay() {
+        document.getElementById('overlay').classList.remove('show');
+        document.getElementById('confetti').innerHTML = '';
+        startRound();
+    }
+
+    function newGame() {
+        score  = 0;
+        streak = 0;
+        document.getElementById('scoreVal').textContent  = 0;
+        document.getElementById('streakVal').textContent = 0;
+        document.getElementById('overlay').classList.remove('show');
+        document.getElementById('confetti').innerHTML = '';
+        startRound();
+    }
+
+    function launchConfetti() {
+        const wrap = document.getElementById('confetti');
+        wrap.innerHTML = '';
+        const colors = ['#ffd700','#ff6bbd','#a855f7','#38bdf8','#34d399','#fb923c','#f43f5e'];
+        for (let i = 0; i < 100; i++) {
+            const p  = document.createElement('div');
+            p.className = 'cp';
+            const w  = Math.random() * 10 + 6;
+            const h  = Math.random() * 10 + 6;
+            const br = Math.random() > 0.5 ? '50%' : '2px';
+            p.style.cssText = `left:${Math.random()*100}%;width:${w}px;height:${h}px;background:${colors[i%colors.length]};border-radius:${br};--fd:${(Math.random()*2+1.5).toFixed(2)}s;--del:${(Math.random()*1).toFixed(2)}s`;
+            wrap.appendChild(p);
+        }
+    }
+
+    startRound();
+</script>
+</body>
+</html>
