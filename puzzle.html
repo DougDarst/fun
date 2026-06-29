@@ -62,6 +62,8 @@
                       text-shadow:0 0 10px rgba(255,215,0,0.55); line-height:1.1; }
         .stat-label { font-size:0.62rem; color:rgba(255,255,255,0.4);
                       letter-spacing:2px; text-transform:uppercase; }
+
+        /* Goal preview: a tiny 3×3 solved grid */
         .preview-card {
             background:rgba(255,255,255,0.08);
             backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
@@ -71,22 +73,19 @@
         }
         .preview-label { font-size:0.58rem; color:rgba(255,255,255,0.4);
                          letter-spacing:2px; text-transform:uppercase; }
-        /* Goal preview: a small 3×3 replica of the puzzle solved, using CSS emoji slices */
         .preview-grid {
             display:grid; grid-template-columns:repeat(3,1fr);
+            grid-template-rows:repeat(3,1fr);
             gap:2px; width:72px; height:72px;
             background:rgba(0,0,0,0.3); border-radius:8px; padding:2px;
             border:1.5px solid rgba(255,255,255,0.2);
         }
-        .preview-cell {
-            position:relative; overflow:hidden; border-radius:3px;
-        }
+        .preview-cell { position:relative; overflow:hidden; border-radius:3px; }
         .preview-cell .pcl {
             position:absolute;
-            width:300%; height:300%;
             display:flex; align-items:center; justify-content:center;
             background:linear-gradient(135deg,#f5eeff,#e8f0ff);
-            pointer-events:none; user-select:none; -webkit-user-select:none;
+            pointer-events:none;
         }
         .preview-cell .pcl span { line-height:1; }
 
@@ -99,11 +98,12 @@
         }
         .puzzle-grid {
             width:100%; height:100%;
-            display:grid; grid-template-columns:repeat(3,1fr);
+            display:grid;
+            grid-template-columns:repeat(3,1fr);
+            grid-template-rows:repeat(3,1fr);   /* explicit rows prevent iOS height:0 tiles */
             gap:5px;
         }
 
-        /* Each tile clips a 3× oversized inner div to show just its slice */
         .tile {
             position:relative; overflow:hidden;
             border-radius:10px; cursor:pointer;
@@ -112,17 +112,16 @@
             touch-action:manipulation;
             user-select:none; -webkit-user-select:none;
         }
-        /* Inner div: 3× tile size, positioned to reveal the correct emoji slice */
+        /* Inner div sized & positioned in pixels via JS — avoids iOS resolving
+           height:% against a 0-height containing block with auto grid rows. */
         .tile .tl {
             position:absolute;
-            width:300%; height:300%;
             display:flex; align-items:center; justify-content:center;
             background:linear-gradient(135deg,#f5eeff,#e8f0ff);
             pointer-events:none; user-select:none; -webkit-user-select:none;
         }
         .tile .tl span { line-height:1; }
 
-        /* Slide animation applied just before the DOM swap */
         .tile.sliding {
             transition:transform 0.17s cubic-bezier(0.4,0,0.2,1);
             z-index:10;
@@ -134,15 +133,13 @@
             border:2px dashed rgba(255,255,255,0.1);
         }
 
-        /* ── Status bar ── */
+        /* ── Status / buttons ── */
         .status-bar {
             width:100%; background:rgba(255,255,255,0.1);
             border:1.5px solid rgba(255,255,255,0.2); border-radius:50px;
             padding:10px 20px; font-size:0.95rem; font-weight:700; text-align:center;
             min-height:44px; display:flex; align-items:center; justify-content:center;
         }
-
-        /* ── Buttons ── */
         .new-game-btn {
             background:rgba(255,255,255,0.12); color:white;
             border:2px solid rgba(255,255,255,0.28); border-radius:50px;
@@ -170,13 +167,7 @@
             from{transform:scale(0.55) translateY(50px);opacity:0}
             to  {transform:scale(1)   translateY(0);   opacity:1}
         }
-        .r-emoji {
-            font-size:5rem; display:block; margin-bottom:8px;
-            animation:bounceIn 0.6s cubic-bezier(0.34,1.6,0.64,1);
-        }
-        @keyframes bounceIn {
-            from{transform:scale(0.3) rotate(-15deg)} to{transform:scale(1) rotate(0deg)}
-        }
+        .r-emoji { font-size:5rem; display:block; margin-bottom:8px; }
         .r-title { font-size:1.8rem; font-weight:900; color:#ffd700;
                    text-shadow:0 0 20px rgba(255,215,0,0.7); margin-bottom:6px; }
         .r-msg   { font-size:0.9rem; color:rgba(255,255,255,0.7); margin-bottom:24px; line-height:1.5; }
@@ -257,7 +248,7 @@ for (let i = 0; i < 70; i++) {
 }
 
 /* ── Game state ── */
-// grid[0..8]: values 1–8 are tiles, 0 is the blank. Solved = [1,2,3,4,5,6,7,8,0]
+// grid[0..8]: values 1–8 = tiles, 0 = blank. Solved = [1,2,3,4,5,6,7,8,0]
 let grid     = [];
 let blankIdx = 0;
 let moves    = 0;
@@ -265,6 +256,19 @@ let locked   = false;
 let bestMoves = localStorage.getItem('unicornPuzzleBest')
     ? parseInt(localStorage.getItem('unicornPuzzleBest'), 10)
     : null;
+
+/* ── Tile pixel size cache ──
+   All inner-div positioning uses pixel values (not %) to avoid iOS resolving
+   height:% against a 0-height containing block when grid rows are auto. */
+let gTilePx = 0;
+
+const puzzleGrid = document.getElementById('puzzleGrid');
+
+function measureTile() {
+    const w = puzzleGrid.getBoundingClientRect().width;
+    if (w > 10) gTilePx = Math.round((w - 10) / 3); // subtract 2 gaps × 5px
+    return gTilePx;
+}
 
 /* ── Puzzle helpers ── */
 function neighbors(idx) {
@@ -280,7 +284,7 @@ function isSolved() {
     return grid[8] === 0 && grid.slice(0, 8).every((v, i) => v === i + 1);
 }
 
-/* ── Shuffle by walking from the solved state — always solvable ── */
+/* ── Shuffle by walking from solved state — always solvable ── */
 function generateShuffle() {
     grid     = [1, 2, 3, 4, 5, 6, 7, 8, 0];
     blankIdx = 8;
@@ -294,60 +298,66 @@ function generateShuffle() {
     }
 }
 
-/* ── Build a tile's inner element (pure CSS emoji, no canvas) ──
-   Each tile clips a 300%×300% inner div to reveal just its slice
-   of the unicorn emoji. top/left offsets shift the inner div so
-   the correct third is visible through the tile's overflow:hidden. */
-function makeTileInner(tileNum, pxSize) {
-    const natRow = Math.floor((tileNum - 1) / 3);  // 0–2
-    const natCol = (tileNum - 1) % 3;               // 0–2
-    const inner  = document.createElement('div');
-    inner.className = 'tl';
-    inner.style.top  = (-natRow * 100) + '%';
-    inner.style.left = (-natCol * 100) + '%';
+/* ── Build inner clip div for one tile ──
+   natRow/natCol: where this tile sits in the solved 3×3 image.
+   The inner div is 3× the tile size, shifted so only the correct
+   third is visible through the tile's overflow:hidden. */
+function makeTileInner(tileNum) {
+    const natRow = Math.floor((tileNum - 1) / 3);
+    const natCol = (tileNum - 1) % 3;
+    const tp = gTilePx || 80;          // fallback if layout not measured yet
+    const sz = tp * 3;                  // inner div spans 3 tiles
+    const ep = Math.round(sz * 0.82);  // emoji fills ~82% of assembled width
+
+    const inner = document.createElement('div');
+    inner.className   = 'tl';
+    inner.dataset.r   = natRow;
+    inner.dataset.c   = natCol;
+    inner.style.width  = sz + 'px';
+    inner.style.height = sz + 'px';
+    inner.style.top    = (-natRow * tp) + 'px';
+    inner.style.left   = (-natCol * tp) + 'px';
+
     const span = document.createElement('span');
-    span.textContent = '🦄';
-    span.style.fontSize = (pxSize || 120) + 'px';
+    span.textContent      = '🦄';
+    span.style.fontSize   = ep + 'px';
+    span.style.lineHeight = '1';
     inner.appendChild(span);
     return inner;
 }
 
-/* ── Compute the emoji font size that fills 3× the tile ── */
-function emojiPx() {
-    // Measure from the grid container (always in DOM) rather than from tiles
-    // (render() clears children before calling this, so querySelector('.tile') would return null)
-    const gridW = puzzleGrid.getBoundingClientRect().width;
-    if (!gridW) return 120;
-    // inner div = 3 × tileW = gridW minus 2 gaps of 5px
-    return Math.round((gridW - 10) * 0.82);
-}
-
 /* ── Render grid ── */
-const puzzleGrid = document.getElementById('puzzleGrid');
-
 function render() {
     puzzleGrid.innerHTML = '';
-    const px = emojiPx();
+    measureTile(); // refresh pixel cache
     grid.forEach((tileNum, pos) => {
         const cell = document.createElement('div');
         if (tileNum === 0) {
             cell.className = 'tile-empty';
         } else {
             cell.className = 'tile';
-            cell.appendChild(makeTileInner(tileNum, px));
+            cell.appendChild(makeTileInner(tileNum));
             cell.addEventListener('click', () => onTap(pos));
         }
         puzzleGrid.appendChild(cell);
     });
 }
 
-/* ── Re-compute emoji font size without full re-render (e.g. on resize) ── */
+/* ── Recompute pixel sizes on existing tiles (orientation / window resize) ── */
 function resizeEmoji() {
-    const px = emojiPx();
-    puzzleGrid.querySelectorAll('.tile .tl span').forEach(s => {
-        s.style.fontSize = px + 'px';
+    measureTile();
+    if (!gTilePx) return;
+    const tp = gTilePx;
+    const sz = tp * 3;
+    const ep = Math.round(sz * 0.82);
+    puzzleGrid.querySelectorAll('.tile .tl').forEach(tl => {
+        tl.style.width  = sz + 'px';
+        tl.style.height = sz + 'px';
+        tl.style.top    = (-tl.dataset.r * tp) + 'px';
+        tl.style.left   = (-tl.dataset.c * tp) + 'px';
+        tl.querySelector('span').style.fontSize = ep + 'px';
     });
-    resizePreview();
+    buildPreview();
 }
 
 /* ── Handle tile tap — pixel-perfect slide animation ── */
@@ -406,46 +416,44 @@ function newGame() {
     document.getElementById('bestVal').textContent = bestMoves !== null ? bestMoves : '—';
 }
 
-/* ── Goal preview: a tiny 3×3 solved version using the same CSS approach ── */
+/* ── Goal preview: tiny 3×3 solved version using same clip approach ── */
 function buildPreview() {
-    const pg  = document.getElementById('previewGrid');
+    const pg = document.getElementById('previewGrid');
     pg.innerHTML = '';
-    // Each preview cell is ~(72-2*2-2*2)/3 ≈ 21px wide
-    const cellW  = (pg.offsetWidth  - 8) / 3;  // subtract 2×padding + 2×gap
-    const emojiS = Math.round(cellW * 3 * 0.82);
+    // #previewGrid has CSS width:72px height:72px; each cell ≈ (72-8)/3 ≈ 21px
+    const cellPx = Math.round((pg.getBoundingClientRect().width - 8) / 3) || 20;
+    const sz     = cellPx * 3;
+    const ep     = Math.round(sz * 0.82);
+
     for (let t = 1; t <= 8; t++) {
-        const cell  = document.createElement('div');
+        const cell   = document.createElement('div');
         cell.className = 'preview-cell';
         const natRow = Math.floor((t - 1) / 3);
         const natCol = (t - 1) % 3;
         const inner  = document.createElement('div');
-        inner.className = 'pcl';
-        inner.style.top  = (-natRow * 100) + '%';
-        inner.style.left = (-natCol * 100) + '%';
+        inner.className    = 'pcl';
+        inner.style.width  = sz + 'px';
+        inner.style.height = sz + 'px';
+        inner.style.top    = (-natRow * cellPx) + 'px';
+        inner.style.left   = (-natCol * cellPx) + 'px';
         const span = document.createElement('span');
-        span.textContent = '🦄';
-        span.style.fontSize = emojiS + 'px';
+        span.textContent      = '🦄';
+        span.style.fontSize   = ep + 'px';
+        span.style.lineHeight = '1';
         inner.appendChild(span);
         cell.appendChild(inner);
         pg.appendChild(cell);
     }
-    // 9th cell (blank — bottom-right in solved state)
+    // blank cell (bottom-right in solved state)
     const blank = document.createElement('div');
-    blank.className = 'preview-cell';
+    blank.className       = 'preview-cell';
     blank.style.background = 'rgba(255,255,255,0.06)';
     pg.appendChild(blank);
 }
 
-function resizePreview() {
-    const pg    = document.getElementById('previewGrid');
-    const cellW = (pg.offsetWidth - 8) / 3;
-    const px    = Math.round(cellW * 3 * 0.82);
-    pg.querySelectorAll('.pcl span').forEach(s => { s.style.fontSize = px + 'px'; });
-}
-
 /* ── Confetti ── */
 function launchConfetti() {
-    const wrap   = document.getElementById('confetti');
+    const wrap = document.getElementById('confetti');
     wrap.innerHTML = '';
     const colors = ['#ffd700','#ff6bbd','#a855f7','#38bdf8','#34d399','#fb923c','#f43f5e'];
     for (let i = 0; i < 90; i++) {
@@ -462,10 +470,15 @@ function launchConfetti() {
 /* ── Handle orientation / window resize ── */
 new ResizeObserver(resizeEmoji).observe(puzzleGrid);
 
-/* ── Boot ── */
+/* ── Boot ──
+   newGame() renders immediately (gTilePx may be 0 before layout → fallback 80px).
+   The RAF fires after the browser has done layout, so measureTile() gets the
+   real grid width and resizeEmoji() corrects all tile sizes. */
 newGame();
-// Build preview after initial layout so offsetWidth is real
-requestAnimationFrame(buildPreview);
+requestAnimationFrame(() => {
+    resizeEmoji();
+    buildPreview();
+});
 </script>
 </body>
 </html>
