@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🧩 Unicorn Puzzle — Ellie & Grandpa</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+        body {
+            min-height:100vh; min-height:100dvh;
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Rounded,sans-serif;
+            background:linear-gradient(135deg,#1a0040,#0a1560,#2d0060,#0a1560,#1a0040);
+            background-size:400% 400%;
+            animation:bgShift 12s ease infinite;
+            display:flex; flex-direction:column; align-items:center;
+            padding:14px 14px 24px; overflow-x:hidden; color:white;
+        }
+        @keyframes bgShift {
+            0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%}
+        }
+
+        .stars { position:fixed; inset:0; pointer-events:none; z-index:0; }
+        .star {
+            position:absolute; background:white; border-radius:50%;
+            animation:twinkle var(--d) ease-in-out infinite var(--delay); opacity:0;
+        }
+        @keyframes twinkle {
+            0%,100%{opacity:0;transform:scale(0.4)} 50%{opacity:0.9;transform:scale(1)}
+        }
+
+        .game {
+            position:relative; z-index:1; width:100%; max-width:420px;
+            display:flex; flex-direction:column; align-items:center; gap:12px;
+        }
+
+        /* ── Top bar ── */
+        .top-bar { width:100%; display:flex; align-items:center; gap:10px; }
+        .back-btn {
+            background:rgba(255,255,255,0.12); border:1.5px solid rgba(255,255,255,0.2);
+            color:white; border-radius:50px; padding:8px 14px; font-size:0.82rem;
+            font-weight:700; white-space:nowrap; flex-shrink:0;
+            text-decoration:none; transition:background 0.2s; letter-spacing:0.5px;
+        }
+        .back-btn:active { background:rgba(255,255,255,0.22); }
+        h1 {
+            flex:1; text-align:center; font-size:1.35rem; font-weight:900;
+            text-shadow:0 0 20px rgba(255,200,80,0.8); letter-spacing:1px;
+        }
+        .top-spacer { flex-shrink:0; width:74px; }
+
+        /* ── Stats row ── */
+        .stats-row { display:flex; gap:10px; width:100%; align-items:stretch; }
+        .stat-card {
+            flex:1; background:rgba(255,255,255,0.08);
+            backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+            border:2px solid rgba(255,255,255,0.15); border-radius:20px;
+            padding:10px 8px; text-align:center;
+        }
+        .stat-icon  { font-size:1.3rem; }
+        .stat-value { font-size:1.9rem; font-weight:900; color:#ffd700;
+                      text-shadow:0 0 10px rgba(255,215,0,0.55); line-height:1.1; }
+        .stat-label { font-size:0.62rem; color:rgba(255,255,255,0.4);
+                      letter-spacing:2px; text-transform:uppercase; }
+        .preview-card {
+            background:rgba(255,255,255,0.08);
+            backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+            border:2px solid rgba(255,255,255,0.15); border-radius:20px;
+            padding:8px; display:flex; flex-direction:column;
+            align-items:center; justify-content:center; gap:3px;
+        }
+        .preview-label { font-size:0.58rem; color:rgba(255,255,255,0.4);
+                         letter-spacing:2px; text-transform:uppercase; }
+        #previewImg {
+            width:66px; height:66px; border-radius:8px;
+            border:1.5px solid rgba(255,255,255,0.2);
+            display:block;
+        }
+
+        /* ── Puzzle ── */
+        .puzzle-wrap {
+            width:100%; aspect-ratio:1;
+            background:rgba(0,0,0,0.45);
+            border:2px solid rgba(255,255,255,0.08);
+            border-radius:18px; padding:5px;
+        }
+        .puzzle-grid {
+            width:100%; height:100%;
+            display:grid; grid-template-columns:repeat(3,1fr);
+            gap:5px;
+        }
+
+        .tile {
+            border-radius:10px; cursor:pointer;
+            background-size:300% 300%;
+            background-repeat:no-repeat;
+            border:2px solid rgba(255,255,255,0.3);
+            box-shadow:0 3px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25);
+            touch-action:manipulation;
+            user-select:none; -webkit-user-select:none;
+        }
+        /* sliding animation: tile transitions its transform */
+        .tile.sliding {
+            transition:transform 0.17s cubic-bezier(0.4,0,0.2,1);
+            z-index:10;
+        }
+        .tile-empty {
+            background:rgba(255,255,255,0.04) !important;
+            border:2px dashed rgba(255,255,255,0.1) !important;
+            box-shadow:none !important;
+            border-radius:10px; cursor:default;
+        }
+
+        /* ── Status bar ── */
+        .status-bar {
+            width:100%; background:rgba(255,255,255,0.1);
+            border:1.5px solid rgba(255,255,255,0.2); border-radius:50px;
+            padding:10px 20px; font-size:0.95rem; font-weight:700; text-align:center;
+            min-height:44px; display:flex; align-items:center; justify-content:center;
+        }
+
+        /* ── Buttons ── */
+        .new-game-btn {
+            background:rgba(255,255,255,0.12); color:white;
+            border:2px solid rgba(255,255,255,0.28); border-radius:50px;
+            padding:11px 32px; font-size:0.95rem; font-weight:800; cursor:pointer;
+            letter-spacing:1.5px; transition:all 0.2s;
+        }
+        .new-game-btn:active { transform:scale(0.94); background:rgba(255,255,255,0.22); }
+
+        /* ── Win overlay ── */
+        .overlay {
+            position:fixed; inset:0; background:rgba(5,0,20,0.80);
+            backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+            display:flex; align-items:center; justify-content:center;
+            z-index:100; opacity:0; pointer-events:none; transition:opacity 0.4s ease;
+        }
+        .overlay.show { opacity:1; pointer-events:all; }
+        .result-card {
+            background:linear-gradient(145deg,rgba(50,0,90,0.97),rgba(10,15,80,0.97));
+            border:2.5px solid rgba(255,215,0,0.55); border-radius:30px;
+            padding:36px 28px 30px; text-align:center; max-width:320px; width:88%;
+            box-shadow:0 0 60px rgba(255,215,0,0.2),0 24px 60px rgba(0,0,0,0.6);
+            animation:cardIn 0.5s cubic-bezier(0.34,1.5,0.64,1);
+        }
+        @keyframes cardIn {
+            from{transform:scale(0.55) translateY(50px);opacity:0}
+            to  {transform:scale(1)   translateY(0);   opacity:1}
+        }
+        .r-emoji {
+            font-size:5rem; display:block; margin-bottom:8px;
+            animation:bounceIn 0.6s cubic-bezier(0.34,1.6,0.64,1);
+        }
+        @keyframes bounceIn {
+            from{transform:scale(0.3) rotate(-15deg)} to{transform:scale(1) rotate(0deg)}
+        }
+        .r-title { font-size:1.8rem; font-weight:900; color:#ffd700;
+                   text-shadow:0 0 20px rgba(255,215,0,0.7); margin-bottom:6px; }
+        .r-msg   { font-size:0.9rem; color:rgba(255,255,255,0.7); margin-bottom:24px; line-height:1.5; }
+        .play-again-btn {
+            background:linear-gradient(135deg,#ffd700,#ff8800); color:#1a0033;
+            border:none; border-radius:50px; padding:14px 36px;
+            font-size:1.1rem; font-weight:900; cursor:pointer;
+            box-shadow:0 6px 24px rgba(255,140,0,0.5); letter-spacing:1px;
+            transition:transform 0.15s;
+        }
+        .play-again-btn:active { transform:scale(0.92); }
+
+        /* ── Confetti ── */
+        .confetti-wrap { position:fixed; inset:0; pointer-events:none; z-index:99; overflow:hidden; }
+        .cp { position:absolute; top:-14px; animation:fall var(--fd) ease-in var(--del) forwards; }
+        @keyframes fall {
+            0%  {transform:translateY(0)     rotate(0deg);  opacity:1}
+            100%{transform:translateY(110vh) rotate(720deg);opacity:0}
+        }
+    </style>
+</head>
+<body>
+
+<div class="stars"         id="stars"></div>
+<div class="confetti-wrap" id="confetti"></div>
+
+<div class="overlay" id="overlay">
+    <div class="result-card">
+        <span class="r-emoji">🦄</span>
+        <div class="r-title">You did it!</div>
+        <div class="r-msg" id="rMsg">Amazing job!</div>
+        <button class="play-again-btn" onclick="newGame()">Play Again! 🧩</button>
+    </div>
+</div>
+
+<div class="game">
+    <div class="top-bar">
+        <a class="back-btn" href="index.html">← Games</a>
+        <h1>🧩 Unicorn Puzzle</h1>
+        <div class="top-spacer"></div>
+    </div>
+
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-value" id="movesVal">0</div>
+            <div class="stat-label">moves</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🏆</div>
+            <div class="stat-value" id="bestVal">—</div>
+            <div class="stat-label">best</div>
+        </div>
+        <div class="preview-card">
+            <div class="preview-label">Goal</div>
+            <img id="previewImg" src="" alt="solved puzzle">
+        </div>
+    </div>
+
+    <div class="puzzle-wrap">
+        <div class="puzzle-grid" id="puzzleGrid"></div>
+    </div>
+
+    <div class="status-bar" id="statusBar">Slide tiles to complete the 🦄!</div>
+
+    <button class="new-game-btn" onclick="newGame()">🔄 New Puzzle</button>
+</div>
+
+<script>
+/* ── Stars ── */
+const starsEl = document.getElementById('stars');
+for (let i = 0; i < 70; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const sz = (Math.random() * 2.5 + 0.8).toFixed(1);
+    s.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${(Math.random()*3+2).toFixed(1)}s;--delay:-${(Math.random()*5).toFixed(1)}s`;
+    starsEl.appendChild(s);
+}
+
+/* ── Build emoji canvas image ── */
+let imageUrl = '';
+
+function buildImage() {
+    const size = 600;
+    const c = document.createElement('canvas');
+    c.width = size; c.height = size;
+    const ctx = c.getContext('2d');
+
+    // Light gradient background so all 9 tiles have visible content
+    const grad = ctx.createLinearGradient(0, 0, size, size);
+    grad.addColorStop(0, '#f5eeff');
+    grad.addColorStop(1, '#e8f0ff');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+
+    // Draw unicorn large and centered
+    ctx.font    = '490px serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🦄', size / 2, size / 2 + 20);
+
+    imageUrl = c.toDataURL('image/png');
+    document.getElementById('previewImg').src = imageUrl;
+}
+
+/* ── Game state ── */
+// grid: 1D array [0..8]. Values 1–8 = tiles, 0 = blank.
+// Solved: [1,2,3,4,5,6,7,8,0]
+let grid     = [];
+let blankIdx = 0;
+let moves    = 0;
+let locked   = false;
+let bestMoves = localStorage.getItem('unicornPuzzleBest')
+    ? parseInt(localStorage.getItem('unicornPuzzleBest'), 10)
+    : null;
+
+/* ── Puzzle helpers ── */
+function neighbors(idx) {
+    const r = Math.floor(idx / 3), c = idx % 3, n = [];
+    if (r > 0) n.push(idx - 3);
+    if (r < 2) n.push(idx + 3);
+    if (c > 0) n.push(idx - 1);
+    if (c < 2) n.push(idx + 1);
+    return n;
+}
+
+function isSolved() {
+    return grid[8] === 0 && grid.slice(0, 8).every((v, i) => v === i + 1);
+}
+
+/* ── Shuffle by walking from solved state — always solvable ── */
+function generateShuffle() {
+    grid     = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+    blankIdx = 8;
+    let prev = -1;
+    for (let i = 0; i < 300; i++) {
+        // exclude backtracking to keep shuffle effective
+        const opts = neighbors(blankIdx).filter(n => n !== prev);
+        const pick = opts[Math.floor(Math.random() * opts.length)];
+        prev = blankIdx;
+        [grid[blankIdx], grid[pick]] = [grid[pick], grid[blankIdx]];
+        blankIdx = pick;
+    }
+}
+
+/* ── Render grid ── */
+const puzzleGrid = document.getElementById('puzzleGrid');
+
+function render() {
+    puzzleGrid.innerHTML = '';
+    grid.forEach((tileNum, pos) => {
+        const cell = document.createElement('div');
+        if (tileNum === 0) {
+            cell.className = 'tile-empty';
+        } else {
+            cell.className = 'tile';
+            // Each tile shows its natural slice of the image
+            const natRow = Math.floor((tileNum - 1) / 3);
+            const natCol = (tileNum - 1) % 3;
+            cell.style.backgroundImage    = `url(${imageUrl})`;
+            cell.style.backgroundSize     = '300% 300%';
+            cell.style.backgroundPosition = `${natCol * 50}% ${natRow * 50}%`;
+            cell.addEventListener('click', () => onTap(pos));
+        }
+        puzzleGrid.appendChild(cell);
+    });
+}
+
+/* ── Handle tile tap — slide with animation ── */
+function onTap(pos) {
+    if (locked) return;
+    if (pos === blankIdx) return;
+    if (!neighbors(blankIdx).includes(pos)) return;
+
+    locked = true;
+
+    // Measure pixel positions for the sliding animation
+    const tileEl  = puzzleGrid.children[pos];
+    const emptyEl = puzzleGrid.children[blankIdx];
+    const tileR   = tileEl.getBoundingClientRect();
+    const emptyR  = emptyEl.getBoundingClientRect();
+    const dx = emptyR.left - tileR.left;
+    const dy = emptyR.top  - tileR.top;
+
+    // Slide the tile visually toward the blank space
+    tileEl.classList.add('sliding');
+    tileEl.style.transform = `translate(${dx}px, ${dy}px)`;
+
+    setTimeout(() => {
+        // Perform the actual swap
+        [grid[blankIdx], grid[pos]] = [grid[pos], grid[blankIdx]];
+        blankIdx = pos;
+        moves++;
+        document.getElementById('movesVal').textContent = moves;
+
+        render();   // redraws grid with tile in new position (no transform)
+        locked = false;
+
+        if (isSolved()) setTimeout(showWin, 250);
+    }, 180); // slightly longer than the 0.17s CSS transition
+}
+
+/* ── Win ── */
+function showWin() {
+    const isNewBest = bestMoves === null || moves < bestMoves;
+    if (isNewBest) {
+        bestMoves = moves;
+        localStorage.setItem('unicornPuzzleBest', bestMoves);
+        document.getElementById('bestVal').textContent = bestMoves;
+    }
+    const bestLine = isNewBest ? ' New best! 🌟' : ` (Best: ${bestMoves})`;
+    document.getElementById('rMsg').textContent =
+        `You solved it in ${moves} move${moves === 1 ? '' : 's'}!${bestLine}`;
+    document.getElementById('overlay').classList.add('show');
+    launchConfetti();
+}
+
+/* ── New game ── */
+function newGame() {
+    moves  = 0;
+    locked = false;
+    document.getElementById('movesVal').textContent = 0;
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('confetti').innerHTML   = '';
+    document.getElementById('statusBar').textContent = 'Slide tiles to complete the 🦄!';
+    generateShuffle();
+    render();
+    updateBestDisplay();
+}
+
+function updateBestDisplay() {
+    document.getElementById('bestVal').textContent =
+        bestMoves !== null ? bestMoves : '—';
+}
+
+/* ── Confetti ── */
+function launchConfetti() {
+    const wrap   = document.getElementById('confetti');
+    wrap.innerHTML = '';
+    const colors = ['#ffd700','#ff6bbd','#a855f7','#38bdf8','#34d399','#fb923c','#f43f5e'];
+    for (let i = 0; i < 90; i++) {
+        const p  = document.createElement('div');
+        p.className = 'cp';
+        const w  = Math.random() * 10 + 6;
+        const h  = Math.random() * 10 + 6;
+        const br = Math.random() > 0.5 ? '50%' : '2px';
+        p.style.cssText = `left:${Math.random()*100}%;width:${w}px;height:${h}px;background:${colors[i%colors.length]};border-radius:${br};--fd:${(Math.random()*2+1.5).toFixed(2)}s;--del:${(Math.random()*.8).toFixed(2)}s`;
+        wrap.appendChild(p);
+    }
+}
+
+/* ── Boot ── */
+buildImage();
+updateBestDisplay();
+newGame();
+</script>
+</body>
+</html>
