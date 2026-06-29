@@ -67,15 +67,28 @@
             backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
             border:2px solid rgba(255,255,255,0.15); border-radius:20px;
             padding:8px; display:flex; flex-direction:column;
-            align-items:center; justify-content:center; gap:3px;
+            align-items:center; justify-content:center; gap:4px;
         }
         .preview-label { font-size:0.58rem; color:rgba(255,255,255,0.4);
                          letter-spacing:2px; text-transform:uppercase; }
-        #previewImg {
-            width:66px; height:66px; border-radius:8px;
+        /* Goal preview: a small 3×3 replica of the puzzle solved, using CSS emoji slices */
+        .preview-grid {
+            display:grid; grid-template-columns:repeat(3,1fr);
+            gap:2px; width:72px; height:72px;
+            background:rgba(0,0,0,0.3); border-radius:8px; padding:2px;
             border:1.5px solid rgba(255,255,255,0.2);
-            display:block;
         }
+        .preview-cell {
+            position:relative; overflow:hidden; border-radius:3px;
+        }
+        .preview-cell .pcl {
+            position:absolute;
+            width:300%; height:300%;
+            display:flex; align-items:center; justify-content:center;
+            background:linear-gradient(135deg,#f5eeff,#e8f0ff);
+            pointer-events:none; user-select:none; -webkit-user-select:none;
+        }
+        .preview-cell .pcl span { line-height:1; }
 
         /* ── Puzzle ── */
         .puzzle-wrap {
@@ -90,25 +103,35 @@
             gap:5px;
         }
 
+        /* Each tile clips a 3× oversized inner div to show just its slice */
         .tile {
+            position:relative; overflow:hidden;
             border-radius:10px; cursor:pointer;
-            background-size:300% 300%;
-            background-repeat:no-repeat;
             border:2px solid rgba(255,255,255,0.3);
             box-shadow:0 3px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25);
             touch-action:manipulation;
             user-select:none; -webkit-user-select:none;
         }
-        /* sliding animation: tile transitions its transform */
+        /* Inner div: 3× tile size, positioned to reveal the correct emoji slice */
+        .tile .tl {
+            position:absolute;
+            width:300%; height:300%;
+            display:flex; align-items:center; justify-content:center;
+            background:linear-gradient(135deg,#f5eeff,#e8f0ff);
+            pointer-events:none; user-select:none; -webkit-user-select:none;
+        }
+        .tile .tl span { line-height:1; }
+
+        /* Slide animation applied just before the DOM swap */
         .tile.sliding {
             transition:transform 0.17s cubic-bezier(0.4,0,0.2,1);
             z-index:10;
         }
+
         .tile-empty {
-            background:rgba(255,255,255,0.04) !important;
-            border:2px dashed rgba(255,255,255,0.1) !important;
-            box-shadow:none !important;
             border-radius:10px; cursor:default;
+            background:rgba(255,255,255,0.04);
+            border:2px dashed rgba(255,255,255,0.1);
         }
 
         /* ── Status bar ── */
@@ -209,7 +232,7 @@
         </div>
         <div class="preview-card">
             <div class="preview-label">Goal</div>
-            <img id="previewImg" src="" alt="solved puzzle">
+            <div class="preview-grid" id="previewGrid"></div>
         </div>
     </div>
 
@@ -217,7 +240,7 @@
         <div class="puzzle-grid" id="puzzleGrid"></div>
     </div>
 
-    <div class="status-bar" id="statusBar">Slide tiles to complete the 🦄!</div>
+    <div class="status-bar">Slide tiles to complete the 🦄!</div>
 
     <button class="new-game-btn" onclick="newGame()">🔄 New Puzzle</button>
 </div>
@@ -233,35 +256,8 @@ for (let i = 0; i < 70; i++) {
     starsEl.appendChild(s);
 }
 
-/* ── Build emoji canvas image ── */
-let imageUrl = '';
-
-function buildImage() {
-    const size = 600;
-    const c = document.createElement('canvas');
-    c.width = size; c.height = size;
-    const ctx = c.getContext('2d');
-
-    // Light gradient background so all 9 tiles have visible content
-    const grad = ctx.createLinearGradient(0, 0, size, size);
-    grad.addColorStop(0, '#f5eeff');
-    grad.addColorStop(1, '#e8f0ff');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, size, size);
-
-    // Draw unicorn large and centered
-    ctx.font    = '490px serif';
-    ctx.textAlign    = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🦄', size / 2, size / 2 + 20);
-
-    imageUrl = c.toDataURL('image/png');
-    document.getElementById('previewImg').src = imageUrl;
-}
-
 /* ── Game state ── */
-// grid: 1D array [0..8]. Values 1–8 = tiles, 0 = blank.
-// Solved: [1,2,3,4,5,6,7,8,0]
+// grid[0..8]: values 1–8 are tiles, 0 is the blank. Solved = [1,2,3,4,5,6,7,8,0]
 let grid     = [];
 let blankIdx = 0;
 let moves    = 0;
@@ -284,13 +280,12 @@ function isSolved() {
     return grid[8] === 0 && grid.slice(0, 8).every((v, i) => v === i + 1);
 }
 
-/* ── Shuffle by walking from solved state — always solvable ── */
+/* ── Shuffle by walking from the solved state — always solvable ── */
 function generateShuffle() {
     grid     = [1, 2, 3, 4, 5, 6, 7, 8, 0];
     blankIdx = 8;
     let prev = -1;
     for (let i = 0; i < 300; i++) {
-        // exclude backtracking to keep shuffle effective
         const opts = neighbors(blankIdx).filter(n => n !== prev);
         const pick = opts[Math.floor(Math.random() * opts.length)];
         prev = blankIdx;
@@ -299,30 +294,63 @@ function generateShuffle() {
     }
 }
 
+/* ── Build a tile's inner element (pure CSS emoji, no canvas) ──
+   Each tile clips a 300%×300% inner div to reveal just its slice
+   of the unicorn emoji. top/left offsets shift the inner div so
+   the correct third is visible through the tile's overflow:hidden. */
+function makeTileInner(tileNum, pxSize) {
+    const natRow = Math.floor((tileNum - 1) / 3);  // 0–2
+    const natCol = (tileNum - 1) % 3;               // 0–2
+    const inner  = document.createElement('div');
+    inner.className = 'tl';
+    inner.style.top  = (-natRow * 100) + '%';
+    inner.style.left = (-natCol * 100) + '%';
+    const span = document.createElement('span');
+    span.textContent = '🦄';
+    span.style.fontSize = (pxSize || 120) + 'px';
+    inner.appendChild(span);
+    return inner;
+}
+
+/* ── Compute the emoji font size that fills 3× the tile ── */
+function emojiPx() {
+    // Measure from the grid container (always in DOM) rather than from tiles
+    // (render() clears children before calling this, so querySelector('.tile') would return null)
+    const gridW = puzzleGrid.getBoundingClientRect().width;
+    if (!gridW) return 120;
+    // inner div = 3 × tileW = gridW minus 2 gaps of 5px
+    return Math.round((gridW - 10) * 0.82);
+}
+
 /* ── Render grid ── */
 const puzzleGrid = document.getElementById('puzzleGrid');
 
 function render() {
     puzzleGrid.innerHTML = '';
+    const px = emojiPx();
     grid.forEach((tileNum, pos) => {
         const cell = document.createElement('div');
         if (tileNum === 0) {
             cell.className = 'tile-empty';
         } else {
             cell.className = 'tile';
-            // Each tile shows its natural slice of the image
-            const natRow = Math.floor((tileNum - 1) / 3);
-            const natCol = (tileNum - 1) % 3;
-            cell.style.backgroundImage    = `url(${imageUrl})`;
-            cell.style.backgroundSize     = '300% 300%';
-            cell.style.backgroundPosition = `${natCol * 50}% ${natRow * 50}%`;
+            cell.appendChild(makeTileInner(tileNum, px));
             cell.addEventListener('click', () => onTap(pos));
         }
         puzzleGrid.appendChild(cell);
     });
 }
 
-/* ── Handle tile tap — slide with animation ── */
+/* ── Re-compute emoji font size without full re-render (e.g. on resize) ── */
+function resizeEmoji() {
+    const px = emojiPx();
+    puzzleGrid.querySelectorAll('.tile .tl span').forEach(s => {
+        s.style.fontSize = px + 'px';
+    });
+    resizePreview();
+}
+
+/* ── Handle tile tap — pixel-perfect slide animation ── */
 function onTap(pos) {
     if (locked) return;
     if (pos === blankIdx) return;
@@ -330,7 +358,6 @@ function onTap(pos) {
 
     locked = true;
 
-    // Measure pixel positions for the sliding animation
     const tileEl  = puzzleGrid.children[pos];
     const emptyEl = puzzleGrid.children[blankIdx];
     const tileR   = tileEl.getBoundingClientRect();
@@ -338,22 +365,18 @@ function onTap(pos) {
     const dx = emptyR.left - tileR.left;
     const dy = emptyR.top  - tileR.top;
 
-    // Slide the tile visually toward the blank space
     tileEl.classList.add('sliding');
-    tileEl.style.transform = `translate(${dx}px, ${dy}px)`;
+    tileEl.style.transform = `translate(${dx}px,${dy}px)`;
 
     setTimeout(() => {
-        // Perform the actual swap
         [grid[blankIdx], grid[pos]] = [grid[pos], grid[blankIdx]];
         blankIdx = pos;
         moves++;
         document.getElementById('movesVal').textContent = moves;
-
-        render();   // redraws grid with tile in new position (no transform)
+        render();
         locked = false;
-
         if (isSolved()) setTimeout(showWin, 250);
-    }, 180); // slightly longer than the 0.17s CSS transition
+    }, 185);
 }
 
 /* ── Win ── */
@@ -364,9 +387,9 @@ function showWin() {
         localStorage.setItem('unicornPuzzleBest', bestMoves);
         document.getElementById('bestVal').textContent = bestMoves;
     }
-    const bestLine = isNewBest ? ' New best! 🌟' : ` (Best: ${bestMoves})`;
     document.getElementById('rMsg').textContent =
-        `You solved it in ${moves} move${moves === 1 ? '' : 's'}!${bestLine}`;
+        `You solved it in ${moves} move${moves === 1 ? '' : 's'}!` +
+        (isNewBest ? ' New best! 🌟' : ` (Best: ${bestMoves})`);
     document.getElementById('overlay').classList.add('show');
     launchConfetti();
 }
@@ -378,15 +401,46 @@ function newGame() {
     document.getElementById('movesVal').textContent = 0;
     document.getElementById('overlay').classList.remove('show');
     document.getElementById('confetti').innerHTML   = '';
-    document.getElementById('statusBar').textContent = 'Slide tiles to complete the 🦄!';
     generateShuffle();
     render();
-    updateBestDisplay();
+    document.getElementById('bestVal').textContent = bestMoves !== null ? bestMoves : '—';
 }
 
-function updateBestDisplay() {
-    document.getElementById('bestVal').textContent =
-        bestMoves !== null ? bestMoves : '—';
+/* ── Goal preview: a tiny 3×3 solved version using the same CSS approach ── */
+function buildPreview() {
+    const pg  = document.getElementById('previewGrid');
+    pg.innerHTML = '';
+    // Each preview cell is ~(72-2*2-2*2)/3 ≈ 21px wide
+    const cellW  = (pg.offsetWidth  - 8) / 3;  // subtract 2×padding + 2×gap
+    const emojiS = Math.round(cellW * 3 * 0.82);
+    for (let t = 1; t <= 8; t++) {
+        const cell  = document.createElement('div');
+        cell.className = 'preview-cell';
+        const natRow = Math.floor((t - 1) / 3);
+        const natCol = (t - 1) % 3;
+        const inner  = document.createElement('div');
+        inner.className = 'pcl';
+        inner.style.top  = (-natRow * 100) + '%';
+        inner.style.left = (-natCol * 100) + '%';
+        const span = document.createElement('span');
+        span.textContent = '🦄';
+        span.style.fontSize = emojiS + 'px';
+        inner.appendChild(span);
+        cell.appendChild(inner);
+        pg.appendChild(cell);
+    }
+    // 9th cell (blank — bottom-right in solved state)
+    const blank = document.createElement('div');
+    blank.className = 'preview-cell';
+    blank.style.background = 'rgba(255,255,255,0.06)';
+    pg.appendChild(blank);
+}
+
+function resizePreview() {
+    const pg    = document.getElementById('previewGrid');
+    const cellW = (pg.offsetWidth - 8) / 3;
+    const px    = Math.round(cellW * 3 * 0.82);
+    pg.querySelectorAll('.pcl span').forEach(s => { s.style.fontSize = px + 'px'; });
 }
 
 /* ── Confetti ── */
@@ -405,10 +459,13 @@ function launchConfetti() {
     }
 }
 
+/* ── Handle orientation / window resize ── */
+new ResizeObserver(resizeEmoji).observe(puzzleGrid);
+
 /* ── Boot ── */
-buildImage();
-updateBestDisplay();
 newGame();
+// Build preview after initial layout so offsetWidth is real
+requestAnimationFrame(buildPreview);
 </script>
 </body>
 </html>
