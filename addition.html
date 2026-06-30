@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>➕ Add It Up — Ellie & Grandpa</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+        body {
+            min-height:100vh; min-height:100dvh;
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Rounded,sans-serif;
+            background:linear-gradient(135deg,#1a0040,#0a1560,#2d0060,#0a1560,#1a0040);
+            background-size:400% 400%;
+            animation:bgShift 12s ease infinite;
+            display:flex; flex-direction:column; align-items:center;
+            padding:14px 14px 24px; overflow-x:hidden; color:white;
+        }
+        @keyframes bgShift {
+            0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%}
+        }
+
+        .stars { position:fixed; inset:0; pointer-events:none; z-index:0; }
+        .star {
+            position:absolute; background:white; border-radius:50%;
+            animation:twinkle var(--d) ease-in-out infinite var(--delay); opacity:0;
+        }
+        @keyframes twinkle {
+            0%,100%{opacity:0;transform:scale(0.4)} 50%{opacity:0.9;transform:scale(1)}
+        }
+
+        .game {
+            position:relative; z-index:1; width:100%; max-width:420px;
+            display:flex; flex-direction:column; align-items:center; gap:14px;
+        }
+
+        /* ── Top bar ── */
+        .top-bar { width:100%; display:flex; align-items:center; gap:10px; }
+        .back-btn {
+            background:rgba(255,255,255,0.12); border:1.5px solid rgba(255,255,255,0.2);
+            color:white; border-radius:50px; padding:8px 14px; font-size:0.82rem;
+            font-weight:700; white-space:nowrap; flex-shrink:0;
+            text-decoration:none; transition:background 0.2s; letter-spacing:0.5px;
+        }
+        .back-btn:active { background:rgba(255,255,255,0.22); }
+        h1 {
+            flex:1; text-align:center; font-size:1.35rem; font-weight:900;
+            text-shadow:0 0 20px rgba(255,200,80,0.8); letter-spacing:1px;
+        }
+        .top-spacer { flex-shrink:0; width:74px; }
+
+        /* ── Stats ── */
+        .stats-row { display:flex; gap:10px; width:100%; }
+        .stat-card {
+            flex:1; background:rgba(255,255,255,0.08);
+            backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+            border:2px solid rgba(255,255,255,0.15); border-radius:20px;
+            padding:10px 8px; text-align:center;
+        }
+        .stat-icon  { font-size:1.2rem; }
+        .stat-value { font-size:1.9rem; font-weight:900; color:#ffd700;
+                      text-shadow:0 0 10px rgba(255,215,0,0.55); line-height:1.1; }
+        .stat-label { font-size:0.62rem; color:rgba(255,255,255,0.4);
+                      letter-spacing:2px; text-transform:uppercase; }
+        @keyframes bump {
+            0%{transform:scale(1)} 45%{transform:scale(1.3)} 100%{transform:scale(1)}
+        }
+        .bump { animation:bump 0.38s cubic-bezier(0.34,1.7,0.64,1); }
+
+        /* ── Equation card ── */
+        .equation-card {
+            width:100%; background:rgba(255,255,255,0.08);
+            backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+            border:2px solid rgba(255,255,255,0.15); border-radius:28px;
+            padding:24px 16px;
+            display:flex; align-items:center; justify-content:center; gap:8px;
+        }
+        .num-bubble {
+            width:72px; height:72px; border-radius:50%; flex-shrink:0;
+            display:flex; align-items:center; justify-content:center;
+            font-size:2.6rem; font-weight:900;
+        }
+        #numA { background:linear-gradient(135deg,#ffd700,#ff8800);
+                box-shadow:0 4px 20px rgba(255,136,0,0.5); color:#1a0033; }
+        #numB { background:linear-gradient(135deg,#34d399,#0ea5e9);
+                box-shadow:0 4px 20px rgba(14,165,233,0.5); color:white; }
+        .op-sign {
+            font-size:2rem; font-weight:900; color:rgba(255,255,255,0.65); flex-shrink:0;
+        }
+        .question-bubble {
+            width:72px; height:72px; border-radius:50%; flex-shrink:0;
+            border:3px dashed rgba(255,255,255,0.45);
+            background:rgba(255,255,255,0.1);
+            display:flex; align-items:center; justify-content:center;
+            font-size:2.4rem; font-weight:900; color:rgba(255,255,255,0.7);
+            animation:qPulse 2s ease-in-out infinite;
+        }
+        @keyframes qPulse {
+            0%,100%{transform:scale(1)} 50%{transform:scale(1.08)}
+        }
+        @keyframes popIn {
+            0%  {transform:scale(0.3) rotate(-12deg); opacity:0}
+            75% {transform:scale(1.18) rotate(3deg);  opacity:1}
+            100%{transform:scale(1)   rotate(0deg);   opacity:1}
+        }
+        .pop { animation:popIn 0.42s cubic-bezier(0.34,1.5,0.64,1) both; }
+
+        /* ── Choice buttons ── */
+        .choices-grid {
+            display:grid; grid-template-columns:1fr 1fr; gap:12px; width:100%;
+        }
+        .choice-btn {
+            background:var(--bg); border:2.5px solid var(--bd);
+            color:white; border-radius:20px; height:82px;
+            font-size:2.5rem; font-weight:900; cursor:pointer;
+            touch-action:manipulation;
+            transition:transform 0.12s, background 0.18s, border-color 0.18s, color 0.18s;
+            display:flex; align-items:center; justify-content:center;
+        }
+        .choice-btn:active:not([disabled]) { transform:scale(0.9); }
+        .choice-btn.correct {
+            background:rgba(52,211,153,0.35) !important;
+            border-color:#34d399 !important; color:#34d399 !important;
+        }
+        .choice-btn.wrong {
+            background:rgba(239,68,68,0.35) !important;
+            border-color:#ef4444 !important; color:#ef4444 !important;
+        }
+
+        /* ── Continue button (shown after wrong answer) ── */
+        .continue-btn {
+            width:100%; background:linear-gradient(135deg,#ffd700,#ff8800); color:#1a0033;
+            border:none; border-radius:50px; padding:14px 20px;
+            font-size:1rem; font-weight:900; cursor:pointer;
+            touch-action:manipulation; letter-spacing:0.5px;
+            box-shadow:0 6px 24px rgba(255,140,0,0.4);
+            transition:transform 0.15s;
+            animation:fadeUp 0.3s ease both;
+        }
+        @keyframes fadeUp {
+            from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)}
+        }
+        .continue-btn:active { transform:scale(0.95); }
+
+        /* ── Progress pill ── */
+        .progress-bar {
+            width:100%; background:rgba(255,255,255,0.1);
+            border:1.5px solid rgba(255,255,255,0.2); border-radius:50px;
+            padding:10px 20px; font-size:0.9rem; font-weight:700; text-align:center;
+            color:rgba(255,255,255,0.8);
+        }
+
+        /* ── Win overlay ── */
+        .overlay {
+            position:fixed; inset:0; background:rgba(5,0,20,0.80);
+            backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+            display:flex; align-items:center; justify-content:center;
+            z-index:100; opacity:0; pointer-events:none; transition:opacity 0.4s ease;
+        }
+        .overlay.show { opacity:1; pointer-events:all; }
+        .result-card {
+            background:linear-gradient(145deg,rgba(50,0,90,0.97),rgba(10,15,80,0.97));
+            border:2.5px solid rgba(255,215,0,0.55); border-radius:30px;
+            padding:36px 28px 30px; text-align:center; max-width:320px; width:88%;
+            box-shadow:0 0 60px rgba(255,215,0,0.2),0 24px 60px rgba(0,0,0,0.6);
+            animation:cardIn 0.5s cubic-bezier(0.34,1.5,0.64,1);
+        }
+        @keyframes cardIn {
+            from{transform:scale(0.55) translateY(50px);opacity:0}
+            to  {transform:scale(1)   translateY(0);   opacity:1}
+        }
+        .r-stars { font-size:2.8rem; margin-bottom:10px; letter-spacing:4px; }
+        .r-score { font-size:4rem; font-weight:900; color:#ffd700; line-height:1;
+                   text-shadow:0 0 20px rgba(255,215,0,0.7); }
+        .r-denom { font-size:1rem; color:rgba(255,255,255,0.4); margin-bottom:8px; }
+        .r-msg   { font-size:1.05rem; font-weight:700; margin-bottom:6px; }
+        .r-best  { font-size:0.82rem; color:rgba(255,215,0,0.65); margin-bottom:22px; min-height:1.2em; }
+        .play-again-btn {
+            background:linear-gradient(135deg,#ffd700,#ff8800); color:#1a0033;
+            border:none; border-radius:50px; padding:14px 36px;
+            font-size:1.1rem; font-weight:900; cursor:pointer;
+            box-shadow:0 6px 24px rgba(255,140,0,0.5);
+            transition:transform 0.15s; letter-spacing:0.5px;
+        }
+        .play-again-btn:active { transform:scale(0.92); }
+
+        /* ── Confetti ── */
+        .confetti-wrap { position:fixed; inset:0; pointer-events:none; z-index:99; overflow:hidden; }
+        .cp { position:absolute; top:-14px; animation:fall var(--fd) ease-in var(--del) forwards; }
+        @keyframes fall {
+            0%  {transform:translateY(0)     rotate(0deg);   opacity:1}
+            100%{transform:translateY(110vh) rotate(720deg); opacity:0}
+        }
+    </style>
+</head>
+<body>
+
+<div class="stars"         id="stars"></div>
+<div class="confetti-wrap" id="confetti"></div>
+
+<div class="overlay" id="overlay">
+    <div class="result-card">
+        <div class="r-stars" id="rStars">⭐⭐⭐</div>
+        <div class="r-score" id="rScore">10</div>
+        <div class="r-denom">out of 10</div>
+        <div class="r-msg"   id="rMsg">Perfect!</div>
+        <div class="r-best"  id="rBest"></div>
+        <button class="play-again-btn" onclick="newRound()">Play Again! ➕</button>
+    </div>
+</div>
+
+<div class="game">
+    <div class="top-bar">
+        <a class="back-btn" href="index.html">← Games</a>
+        <h1>➕ Add It Up!</h1>
+        <div class="top-spacer"></div>
+    </div>
+
+    <div class="stats-row">
+        <div class="stat-card" id="scoreCard">
+            <div class="stat-icon">⭐</div>
+            <div class="stat-value" id="scoreVal">0</div>
+            <div class="stat-label">correct</div>
+        </div>
+        <div class="stat-card" id="streakCard">
+            <div class="stat-icon">🔥</div>
+            <div class="stat-value" id="streakVal">0</div>
+            <div class="stat-label">streak</div>
+        </div>
+    </div>
+
+    <div class="equation-card">
+        <div class="num-bubble" id="numA">0</div>
+        <div class="op-sign">+</div>
+        <div class="num-bubble" id="numB">0</div>
+        <div class="op-sign">=</div>
+        <div class="question-bubble">?</div>
+    </div>
+
+    <div class="choices-grid" id="choicesGrid"></div>
+
+    <button class="continue-btn" id="continueBtn" style="display:none" onclick="onContinue()">
+        I see it! Next question →
+    </button>
+
+    <div class="progress-bar" id="progressBar">Question 1 of 10</div>
+</div>
+
+<script>
+/* ── Stars ── */
+const starsEl = document.getElementById('stars');
+for (let i = 0; i < 70; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const sz = (Math.random() * 2.5 + 0.8).toFixed(1);
+    s.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${(Math.random()*3+2).toFixed(1)}s;--delay:-${(Math.random()*5).toFixed(1)}s`;
+    starsEl.appendChild(s);
+}
+
+/* ── Constants ── */
+const TOTAL = 10;
+const BTN_COLORS = [
+    { bg:'rgba(255,107,189,0.22)', bd:'rgba(255,107,189,0.7)' },
+    { bg:'rgba(56,189,248,0.22)',  bd:'rgba(56,189,248,0.7)'  },
+    { bg:'rgba(251,146,60,0.22)',  bd:'rgba(251,146,60,0.7)'  },
+    { bg:'rgba(168,85,247,0.22)',  bd:'rgba(168,85,247,0.7)'  },
+];
+
+/* ── State ── */
+let score  = 0;
+let streak = 0;
+let qNum   = 0;
+let locked = false;
+let curQ   = null;
+let bestScore = parseInt(localStorage.getItem('additionBest') || '0', 10);
+
+/* ── Helpers ── */
+function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+function makeQuestion() {
+    const sum = Math.floor(Math.random() * 10) + 1; // sum 1–10
+    const a   = Math.floor(Math.random() * (sum + 1));
+    return { a, b: sum - a, answer: sum };
+}
+
+function makeChoices(correct) {
+    const set  = new Set([correct]);
+    const pool = [];
+    for (let d = 1; d <= 6; d++) {
+        if (correct - d >= 0)  pool.push(correct - d);
+        if (correct + d <= 12) pool.push(correct + d);
+    }
+    shuffle(pool);
+    for (const v of pool) {
+        if (set.size === 4) break;
+        set.add(v);
+    }
+    return shuffle([...set]);
+}
+
+/* ── Render a question ── */
+function renderQ() {
+    locked = false;
+    document.getElementById('continueBtn').style.display = 'none';
+    curQ   = makeQuestion();
+    qNum++;
+
+    document.getElementById('progressBar').textContent =
+        `Question ${qNum} of ${TOTAL}`;
+
+    // Animate the two number bubbles in with a stagger
+    const na = document.getElementById('numA');
+    const nb = document.getElementById('numB');
+    na.classList.remove('pop'); nb.classList.remove('pop');
+    void na.offsetWidth;
+    na.textContent = curQ.a;
+    nb.textContent = curQ.b;
+    na.classList.add('pop');
+    setTimeout(() => { nb.classList.remove('pop'); void nb.offsetWidth; nb.classList.add('pop'); }, 110);
+
+    // Build choice buttons
+    const grid  = document.getElementById('choicesGrid');
+    grid.innerHTML = '';
+    const vals  = makeChoices(curQ.answer);
+    const order = shuffle([0, 1, 2, 3]);
+    vals.forEach((v, i) => {
+        const btn = document.createElement('button');
+        btn.className   = 'choice-btn';
+        btn.textContent = v;
+        btn.dataset.val = v;
+        const col = BTN_COLORS[order[i]];
+        btn.style.setProperty('--bg', col.bg);
+        btn.style.setProperty('--bd', col.bd);
+        btn.addEventListener('click', () => onPick(btn, v));
+        grid.appendChild(btn);
+    });
+}
+
+/* ── Handle a choice ── */
+function onPick(btn, val) {
+    if (locked) return;
+    locked = true;
+
+    const correct = (val === curQ.answer);
+    const grid    = document.getElementById('choicesGrid');
+
+    // Disable all buttons immediately
+    [...grid.children].forEach(b => { b.disabled = true; });
+
+    if (correct) {
+        score++;
+        streak++;
+        btn.classList.add('correct');
+        btn.textContent = '✓ ' + val;
+        bump('scoreCard');
+        if (streak >= 3) bump('streakCard');
+        launchConfetti(streak >= 5 ? 40 : 18);
+    } else {
+        streak = 0;
+        btn.classList.add('wrong');
+        btn.textContent = '✗ ' + val;
+        // Highlight the right answer
+        [...grid.children].forEach(b => {
+            if (+b.dataset.val === curQ.answer) {
+                b.classList.add('correct');
+                b.textContent = '✓ ' + curQ.answer;
+            }
+        });
+    }
+
+    document.getElementById('scoreVal').textContent  = score;
+    document.getElementById('streakVal').textContent = streak;
+
+    if (correct) {
+        setTimeout(() => {
+            if (qNum >= TOTAL) showResult();
+            else               renderQ();
+        }, 900);
+    } else {
+        // Wait for the child to tap "Next" so they can study the correct answer
+        const cb = document.getElementById('continueBtn');
+        cb.style.display = '';
+        // Re-trigger animation each time
+        cb.classList.remove('fadeUp');
+        void cb.offsetWidth;
+        cb.classList.add('fadeUp');
+    }
+}
+
+function onContinue() {
+    document.getElementById('continueBtn').style.display = 'none';
+    if (qNum >= TOTAL) showResult();
+    else               renderQ();
+}
+
+function bump(id) {
+    const el = document.getElementById(id);
+    el.classList.remove('bump');
+    void el.offsetWidth;
+    el.classList.add('bump');
+}
+
+/* ── End of round ── */
+function showResult() {
+    let stars, msg;
+    if      (score === 10) { stars = '⭐⭐⭐'; msg = 'Perfect! Amazing! 🌟';       }
+    else if (score >= 8)   { stars = '⭐⭐⭐'; msg = 'Fantastic job! 🎉';          }
+    else if (score >= 6)   { stars = '⭐⭐';  msg = 'Great work! Keep going! 👏';  }
+    else if (score >= 4)   { stars = '⭐';    msg = 'Nice try! Almost there! 💪';  }
+    else                   { stars = '💫';    msg = 'Keep practicing! 🌈';          }
+
+    const isNew = score > bestScore;
+    if (isNew) { bestScore = score; localStorage.setItem('additionBest', bestScore); }
+
+    document.getElementById('rStars').textContent = stars;
+    document.getElementById('rScore').textContent = score;
+    document.getElementById('rMsg').textContent   = msg;
+    document.getElementById('rBest').textContent  =
+        isNew ? '🏆 New best score!' : (bestScore > 0 ? `Best: ${bestScore}/10` : '');
+
+    document.getElementById('overlay').classList.add('show');
+    launchConfetti(score >= 8 ? 90 : 45);
+}
+
+/* ── New round ── */
+function newRound() {
+    score = 0; streak = 0; qNum = 0; locked = false;
+    document.getElementById('scoreVal').textContent  = 0;
+    document.getElementById('streakVal').textContent = 0;
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('confetti').innerHTML = '';
+    renderQ();
+}
+
+/* ── Confetti ── */
+function launchConfetti(n) {
+    const wrap   = document.getElementById('confetti');
+    const colors = ['#ffd700','#ff6bbd','#a855f7','#38bdf8','#34d399','#fb923c','#f43f5e'];
+    for (let i = 0; i < n; i++) {
+        const p  = document.createElement('div');
+        p.className = 'cp';
+        const w  = Math.random() * 10 + 6;
+        const h  = Math.random() * 10 + 6;
+        const br = Math.random() > 0.5 ? '50%' : '2px';
+        p.style.cssText = `left:${Math.random()*100}%;width:${w}px;height:${h}px;background:${colors[i%colors.length]};border-radius:${br};--fd:${(Math.random()*2+1.5).toFixed(2)}s;--del:${(Math.random()*.5).toFixed(2)}s`;
+        wrap.appendChild(p);
+    }
+}
+
+/* ── Boot ── */
+newRound();
+</script>
+</body>
+</html>
