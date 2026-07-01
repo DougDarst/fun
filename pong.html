@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🏓 Pong — Ellie & Grandpa</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        html, body {
+            width:100%; height:100%; overflow:hidden; background:#0a0020;
+            touch-action:none; -webkit-user-select:none; user-select:none;
+        }
+        canvas { display:block; width:100vw; height:100vh; }
+        .back-btn {
+            position:fixed; top:10px; left:10px; z-index:20;
+            background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.18);
+            color:rgba(255,255,255,0.5); border-radius:50px;
+            padding:6px 12px; font-size:0.75rem; font-weight:700;
+            text-decoration:none; font-family:-apple-system,sans-serif;
+            -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+        }
+    </style>
+</head>
+<body>
+<a class="back-btn" href="index.html">← Games</a>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+
+/* ── Layout vars (set in resize) ── */
+let W, H, BALL_R, PW, PH, PY1, PY2, BASE_SPD;
+
+/* ── Game state ── */
+const WIN_SCORE = 7;
+let state    = 'start';  // start | playing | paused | won
+let pauseEnd = 0;
+let score1   = 0;        // top player
+let score2   = 0;        // bottom player
+let pointMsg = '';       // brief "POINT!" message
+
+/* ── Paddles ── */
+let p1x, p2x;
+
+/* ── Ball ── */
+let bx, by, bvx, bvy, bspd;
+let trail = [];
+
+/* ── Touch tracking ── */
+let t1id = null, t1x = null;   // top-half touch → P1 paddle
+let t2id = null, t2x = null;   // bottom-half touch → P2 paddle
+
+/* ── Resize ── */
+function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+
+    const dim  = Math.min(W, H);
+    BALL_R  = Math.max(6,  Math.round(dim * 0.018));
+    PH      = Math.max(8,  Math.round(dim * 0.022));
+    PW      = Math.round(Math.max(W, H) * 0.22);
+    PY1     = Math.round(dim * 0.09);   // top paddle Y
+    PY2     = H - PY1;                   // bottom paddle Y
+    BASE_SPD = dim * 0.009;
+
+    const hw = PW / 2;
+    if (p1x == null) p1x = W / 2;
+    if (p2x == null) p2x = W / 2;
+    p1x = Math.min(Math.max(p1x, hw), W - hw);
+    p2x = Math.min(Math.max(p2x, hw), W - hw);
+}
+
+/* ── Ball launch ── */
+function launchBall(dir) {
+    /* dir: -1 toward P1 (up), +1 toward P2 (down) */
+    const angle = (Math.random() * 44 - 22) * Math.PI / 180;
+    bspd = BASE_SPD;
+    bx   = W / 2;
+    by   = H / 2;
+    bvx  = bspd * Math.sin(angle);
+    bvy  = dir  * bspd * Math.cos(angle);
+    trail = [];
+}
+
+/* ── Reset ── */
+function resetGame() {
+    score1 = score2 = 0;
+    p1x = p2x = W / 2;
+    launchBall(Math.random() < 0.5 ? -1 : 1);
+    pointMsg = '';
+}
+
+/* ── Touch handling ── */
+canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+        if (t.clientY < H / 2) {
+            if (t1id === null) { t1id = t.identifier; t1x = t.clientX; }
+        } else {
+            if (t2id === null) { t2id = t.identifier; t2x = t.clientX; }
+        }
+    }
+    if (state === 'start')  { state = 'playing'; }
+    if (state === 'won')    { resetGame(); state = 'playing'; }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+        if (t.identifier === t1id) t1x = t.clientX;
+        if (t.identifier === t2id) t2x = t.clientX;
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+        if (t.identifier === t1id) t1id = null;
+        if (t.identifier === t2id) t2id = null;
+    }
+}, { passive: false });
+
+/* Desktop mouse (testing) */
+canvas.addEventListener('mousemove', e => {
+    const hw = PW / 2;
+    const cx = Math.min(Math.max(e.clientX, hw), W - hw);
+    if (e.clientY < H / 2) p1x = cx; else p2x = cx;
+});
+canvas.addEventListener('click', () => {
+    if (state === 'start') { state = 'playing'; }
+    if (state === 'won')   { resetGame(); state = 'playing'; }
+});
+
+/* ── Paddle hit ── */
+function hitPaddle(px, py, vySign) {
+    /* vySign: +1 = ball goes down (just hit P1), -1 = ball goes up (just hit P2) */
+    const hit  = Math.max(-1, Math.min(1, (bx - px) / (PW / 2)));
+    const ang  = hit * 65 * Math.PI / 180;
+    const newSpd = Math.min(bspd * 1.055, BASE_SPD * 3.2);
+    bspd = newSpd;
+    bvx  = newSpd * Math.sin(ang);
+    bvy  = vySign * newSpd * Math.cos(ang);
+    /* Snap ball out of paddle to avoid re-triggering */
+    by   = vySign === 1 ? py + PH / 2 + BALL_R + 1
+                        : py - PH / 2 - BALL_R - 1;
+}
+
+/* ── Update ── */
+function update(dt) {
+    if (state === 'paused') {
+        if (Date.now() >= pauseEnd) {
+            launchBall(Math.random() < 0.5 ? -1 : 1);
+            pointMsg = '';
+            state = 'playing';
+        }
+        return;
+    }
+    if (state !== 'playing') return;
+
+    /* Move paddles */
+    const hw = PW / 2;
+    if (t1x !== null) p1x = Math.min(Math.max(t1x, hw), W - hw);
+    if (t2x !== null) p2x = Math.min(Math.max(t2x, hw), W - hw);
+
+    /* Ball trail */
+    trail.push({ x: bx, y: by });
+    if (trail.length > 6) trail.shift();
+
+    /* Move ball */
+    bx += bvx;
+    by += bvy;
+
+    /* Side walls */
+    if (bx - BALL_R < 0)   { bx = BALL_R;     bvx =  Math.abs(bvx); }
+    if (bx + BALL_R > W)   { bx = W - BALL_R; bvx = -Math.abs(bvx); }
+
+    /* P1 collision — ball moving up (bvy < 0) toward top paddle */
+    if (bvy < 0 &&
+        by - BALL_R <= PY1 + PH / 2 &&
+        by + BALL_R >= PY1 - PH / 2 &&
+        Math.abs(bx - p1x) < PW / 2 + BALL_R) {
+        hitPaddle(p1x, PY1, 1);   // bounce downward
+    }
+
+    /* P2 collision — ball moving down (bvy > 0) toward bottom paddle */
+    if (bvy > 0 &&
+        by + BALL_R >= PY2 - PH / 2 &&
+        by - BALL_R <= PY2 + PH / 2 &&
+        Math.abs(bx - p2x) < PW / 2 + BALL_R) {
+        hitPaddle(p2x, PY2, -1);  // bounce upward
+    }
+
+    /* Scoring */
+    if (by + BALL_R < 0) {         // ball exited past top → P2 scores
+        score2++;
+        endPoint('P2 scores!');
+    } else if (by - BALL_R > H) {  // ball exited past bottom → P1 scores
+        score1++;
+        endPoint('P1 scores!');
+    }
+}
+
+function endPoint(msg) {
+    pointMsg = msg;
+    if (score1 >= WIN_SCORE || score2 >= WIN_SCORE) {
+        state = 'won';
+    } else {
+        state    = 'paused';
+        pauseEnd = Date.now() + 1600;
+    }
+}
+
+/* ── Drawing ── */
+function draw() {
+    /* Background */
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0,    '#200045');
+    bg.addColorStop(0.5,  '#080018');
+    bg.addColorStop(1,    '#200045');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    /* Center dashed divider */
+    ctx.save();
+    ctx.setLineDash([W * 0.025, W * 0.025]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth   = 2;
+    ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
+    ctx.restore();
+
+    /* Scores — each drawn in the other player's half so they can read their own score */
+    const sf = Math.round(Math.min(W, H) * 0.13);
+    ctx.font         = `900 ${sf}px system-ui, sans-serif`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle    = 'rgba(255,215,0,0.45)';
+
+    /* P1 score: drawn in top half, rotated 180° so P1 (sitting at top) reads it */
+    ctx.save();
+    ctx.translate(W / 2, H * 0.27);
+    ctx.rotate(Math.PI);
+    ctx.fillText(score1, 0, 0);
+    ctx.restore();
+
+    /* P2 score: drawn in bottom half, normal */
+    ctx.fillText(score2, W / 2, H * 0.73);
+
+    /* Ball trail */
+    for (let i = 0; i < trail.length; i++) {
+        const a = (i + 1) / trail.length;
+        ctx.fillStyle = `rgba(255,255,255,${a * 0.25})`;
+        ctx.beginPath();
+        ctx.arc(trail[i].x, trail[i].y, BALL_R * a * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    /* Ball */
+    if (state !== 'start') {
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur  = 20;
+        ctx.fillStyle   = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(bx, by, BALL_R, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+
+    /* Paddles */
+    drawPaddle(p1x, PY1, '#e879f9');
+    drawPaddle(p2x, PY2, '#38bdf8');
+
+    /* State overlays */
+    if (state === 'start')  drawStart();
+    if (state === 'paused') drawPaused();
+    if (state === 'won')    drawWon();
+}
+
+function drawPaddle(px, py, color) {
+    const hw = PW / 2;
+    const hh = PH / 2;
+    const r  = hh;
+    ctx.shadowColor = color;
+    ctx.shadowBlur  = 18;
+    ctx.fillStyle   = color;
+    ctx.beginPath();
+    ctx.moveTo(px - hw + r,  py - hh);
+    ctx.lineTo(px + hw - r,  py - hh);
+    ctx.arcTo( px + hw, py - hh, px + hw, py - hh + r, r);
+    ctx.lineTo(px + hw,       py + hh - r);
+    ctx.arcTo( px + hw, py + hh, px + hw - r, py + hh, r);
+    ctx.lineTo(px - hw + r,  py + hh);
+    ctx.arcTo( px - hw, py + hh, px - hw, py + hh - r, r);
+    ctx.lineTo(px - hw,       py - hh + r);
+    ctx.arcTo( px - hw, py - hh, px - hw + r, py - hh, r);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
+}
+
+function drawStart() {
+    ctx.fillStyle = 'rgba(5,0,20,0.72)';
+    ctx.fillRect(0, 0, W, H);
+
+    const dim  = Math.min(W, H);
+    const big  = Math.round(dim * 0.058);
+    const sm   = Math.round(dim * 0.030);
+    const tiny = Math.round(dim * 0.024);
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+
+    /* P1 label — top half, rotated so P1 (at top) reads it right-side up */
+    ctx.save();
+    ctx.translate(W / 2, H * 0.22);
+    ctx.rotate(Math.PI);
+    ctx.fillStyle   = '#e879f9';
+    ctx.font        = `900 ${big}px system-ui`;
+    ctx.shadowColor = '#e879f9'; ctx.shadowBlur = 12;
+    ctx.fillText('🏓 Player 1', 0, 0);
+    ctx.shadowBlur  = 0;
+    ctx.fillStyle   = 'rgba(255,255,255,0.5)';
+    ctx.font        = `${tiny}px system-ui`;
+    ctx.fillText('Slide your finger to move the paddle', 0, big * 1.55);
+    ctx.restore();
+
+    /* Center: tap to start */
+    ctx.fillStyle   = '#ffd700';
+    ctx.font        = `900 ${Math.round(dim * 0.055)}px system-ui`;
+    ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 18;
+    ctx.fillText('Tap to Start!', W / 2, H / 2);
+    ctx.shadowBlur  = 0;
+    ctx.fillStyle   = 'rgba(255,255,255,0.35)';
+    ctx.font        = `${tiny}px system-ui`;
+    ctx.fillText(`First to ${WIN_SCORE} wins`, W / 2, H / 2 + dim * 0.07);
+
+    /* P2 label — bottom half, normal orientation */
+    ctx.fillStyle   = '#38bdf8';
+    ctx.font        = `900 ${big}px system-ui`;
+    ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = 12;
+    ctx.fillText('Player 2 🏓', W / 2, H * 0.78);
+    ctx.shadowBlur  = 0;
+    ctx.fillStyle   = 'rgba(255,255,255,0.5)';
+    ctx.font        = `${tiny}px system-ui`;
+    ctx.fillText('Slide your finger to move the paddle', W / 2, H * 0.78 + big * 1.55);
+}
+
+function drawPaused() {
+    if (!pointMsg) return;
+    const dim = Math.min(W, H);
+    ctx.fillStyle    = 'rgba(255,215,0,0.75)';
+    ctx.font         = `900 ${Math.round(dim * 0.042)}px system-ui`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor  = '#ffd700'; ctx.shadowBlur = 16;
+    ctx.fillText(pointMsg, W / 2, H / 2);
+    ctx.shadowBlur   = 0;
+}
+
+function drawWon() {
+    ctx.fillStyle = 'rgba(5,0,20,0.82)';
+    ctx.fillRect(0, 0, W, H);
+
+    const dim  = Math.min(W, H);
+    const big  = Math.round(dim * 0.065);
+    const med  = Math.round(dim * 0.038);
+    const tiny = Math.round(dim * 0.027);
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+
+    const p1won = score1 >= WIN_SCORE;
+
+    function drawWinBlock(color, winScore, loseScore) {
+        ctx.fillStyle   = color;
+        ctx.font        = `900 ${big}px system-ui`;
+        ctx.shadowColor = color; ctx.shadowBlur = 22;
+        ctx.fillText('🏆 You Win!', 0, 0);
+        ctx.shadowBlur  = 0;
+        ctx.fillStyle   = 'rgba(255,255,255,0.75)';
+        ctx.font        = `${med}px system-ui`;
+        ctx.fillText(`${winScore} — ${loseScore}`, 0, big * 1.5);
+    }
+
+    function drawLoseBlock(color) {
+        ctx.fillStyle = color;
+        ctx.font      = `900 ${med}px system-ui`;
+        ctx.fillText('Nice try! 💪', 0, 0);
+    }
+
+    if (p1won) {
+        /* Winner (P1, top): rotated so P1 reads it right-side up */
+        ctx.save();
+        ctx.translate(W / 2, H * 0.26);
+        ctx.rotate(Math.PI);
+        drawWinBlock('#e879f9', score1, score2);
+        ctx.restore();
+        /* Loser (P2, bottom) */
+        ctx.save();
+        ctx.translate(W / 2, H * 0.76);
+        drawLoseBlock('#38bdf8');
+        ctx.restore();
+    } else {
+        /* Winner (P2, bottom): normal orientation */
+        ctx.save();
+        ctx.translate(W / 2, H * 0.74);
+        drawWinBlock('#38bdf8', score2, score1);
+        ctx.restore();
+        /* Loser (P1, top): rotated */
+        ctx.save();
+        ctx.translate(W / 2, H * 0.24);
+        ctx.rotate(Math.PI);
+        drawLoseBlock('#e879f9');
+        ctx.restore();
+    }
+
+    /* Tap to play again — center */
+    ctx.fillStyle = 'rgba(255,255,255,0.42)';
+    ctx.font      = `${tiny}px system-ui`;
+    ctx.fillText('Tap anywhere to play again', W / 2, H / 2);
+}
+
+/* ── Game loop ── */
+let last = 0;
+function loop(ts) {
+    update(ts - last);
+    draw();
+    last = ts;
+    requestAnimationFrame(loop);
+}
+
+/* ── Init ── */
+window.addEventListener('resize', resize);
+resize();
+resetGame();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
