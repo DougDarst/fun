@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🔷 Shape Sorter — Ellie &amp; Grandpa</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+        html, body { height:100%; height:100dvh; overflow:hidden; }
+
+        body {
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Rounded,sans-serif;
+            background:linear-gradient(135deg,#1a0040,#0a1560,#2d0060,#0a1560,#1a0040);
+            background-size:400% 400%;
+            animation:bgShift 12s ease infinite;
+            display:flex; flex-direction:column; align-items:center;
+            color:white;
+        }
+        @keyframes bgShift {
+            0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%}
+        }
+
+        .stars { position:fixed; inset:0; pointer-events:none; z-index:0; }
+        .star {
+            position:absolute; background:white; border-radius:50%;
+            animation:twinkle var(--d) ease-in-out infinite var(--delay); opacity:0;
+        }
+        @keyframes twinkle {
+            0%,100%{opacity:0;transform:scale(0.4)} 50%{opacity:0.9;transform:scale(1)}
+        }
+
+        .confetti-wrap { position:fixed; inset:0; pointer-events:none; z-index:99; overflow:hidden; }
+        .cp { position:absolute; top:-14px; animation:fall var(--fd) ease-in var(--del) forwards; }
+        @keyframes fall {
+            0%  {transform:translateY(0) rotate(0deg);   opacity:1}
+            100%{transform:translateY(110vh) rotate(720deg); opacity:0}
+        }
+
+        .game {
+            position:relative; z-index:1; width:100%; max-width:420px;
+            height:100%; height:100dvh;
+            display:flex; flex-direction:column;
+            padding:0 14px 12px;
+        }
+
+        /* ── Top bar ── */
+        .top-bar {
+            flex-shrink:0; display:flex; align-items:center; gap:10px;
+            padding:14px 0 8px;
+        }
+        .back-btn {
+            background:rgba(255,255,255,0.12); border:1.5px solid rgba(255,255,255,0.2);
+            color:white; border-radius:50px; padding:8px 14px; font-size:0.82rem;
+            font-weight:700; white-space:nowrap; flex-shrink:0; text-decoration:none;
+        }
+        .back-btn:active { background:rgba(255,255,255,0.22); }
+        h1 { flex:1; text-align:center; font-size:1.35rem; font-weight:900;
+             text-shadow:0 0 20px rgba(255,200,80,0.8); }
+        .top-spacer { flex-shrink:0; width:74px; }
+
+        /* ── Targets area ── */
+        #targets {
+            flex:1; display:flex; align-items:center; justify-content:space-around;
+            padding:6px 0;
+        }
+
+        .target {
+            position:relative; flex-shrink:0;
+            width:var(--sz); height:var(--sz);
+            display:flex; align-items:center; justify-content:center;
+        }
+        .target .t-bg {
+            position:absolute; inset:0;
+            background:rgba(255,255,255,0.05);
+            border-radius:16px;
+        }
+        .target svg { position:absolute; inset:0; width:100%; height:100%; }
+        .target .t-outline { opacity:1; transition:opacity 0.3s; }
+        .target .t-fill   { opacity:0; transition:opacity 0.15s; }
+        .target.matched .t-outline { opacity:0.15; }
+        .target.matched .t-fill    { opacity:1; animation:popIn 0.4s cubic-bezier(0.34,1.6,0.64,1); }
+        @keyframes popIn {
+            0%  {transform:scale(0.5)} 60%{transform:scale(1.2)} 100%{transform:scale(1)}
+        }
+        .target .t-check {
+            position:absolute; top:-12px; right:-12px; font-size:1.5rem;
+            opacity:0; transform:scale(0.5);
+            transition:opacity 0.25s 0.2s, transform 0.25s 0.2s;
+            pointer-events:none;
+        }
+        .target.matched .t-check { opacity:1; transform:scale(1); }
+
+        /* ── Status bar ── */
+        .status-bar {
+            flex-shrink:0; margin:4px 0;
+            background:rgba(255,255,255,0.1); border:1.5px solid rgba(255,255,255,0.2);
+            border-radius:50px; padding:10px 20px;
+            font-size:0.9rem; font-weight:700; text-align:center;
+        }
+
+        /* ── Pieces area ── */
+        #pieces {
+            flex:1; display:flex; align-items:center; justify-content:space-around;
+            padding:6px 0;
+        }
+        .piece {
+            flex-shrink:0; width:var(--sz); height:var(--sz);
+            touch-action:none; user-select:none; -webkit-user-select:none;
+            cursor:grab;
+        }
+        .piece svg {
+            width:100%; height:100%;
+            filter:drop-shadow(0 4px 14px rgba(0,0,0,0.45));
+            transition:transform 0.12s;
+        }
+        .piece:active svg { transform:scale(1.12); }
+        .piece.placed { visibility:hidden; pointer-events:none; }
+
+        /* ── Floating drag piece ── */
+        .piece-float {
+            position:fixed; pointer-events:none; z-index:200;
+        }
+        .piece-float svg {
+            width:100%; height:100%;
+            filter:drop-shadow(0 8px 22px rgba(0,0,0,0.55));
+        }
+    </style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+<div class="confetti-wrap" id="confetti"></div>
+
+<div class="game" id="game">
+    <div class="top-bar">
+        <a class="back-btn" href="index.html">← Games</a>
+        <h1>🔷 Shape Sorter!</h1>
+        <div class="top-spacer"></div>
+    </div>
+    <div id="targets"></div>
+    <div class="status-bar" id="status">Drag a shape to its outline! ✨</div>
+    <div id="pieces"></div>
+</div>
+
+<script>
+/* ── Shape definitions ── */
+const DEFS = {
+    circle: {
+        color: '#ff6b6b',
+        svg: '<circle cx="50" cy="50" r="44"/>'
+    },
+    square: {
+        color: '#4ecdc4',
+        svg: '<rect x="6" y="6" width="88" height="88" rx="14"/>'
+    },
+    triangle: {
+        color: '#ffe066',
+        svg: '<polygon points="50,5 96,95 4,95"/>'
+    },
+    heart: {
+        color: '#ff6bbd',
+        svg: '<path d="M50 78 C18 58 6 44 6 30 Q6 8 28 8 Q40 8 50 20 Q60 8 72 8 Q94 8 94 30 C94 44 82 58 50 78Z"/>'
+    },
+    star: {
+        color: '#ffd700',
+        svg: '<polygon points="50,4 61,35 95,35 68,57 79,91 50,71 21,91 32,57 5,35 39,35"/>'
+    },
+    diamond: {
+        color: '#a855f7',
+        svg: '<polygon points="50,3 97,50 50,97 3,50"/>'
+    }
+};
+const ALL = Object.keys(DEFS);
+
+function makeSVG(shape, filled) {
+    const d = DEFS[shape];
+    if (filled) {
+        return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <g fill="${d.color}" stroke="none" stroke-linejoin="round">${d.svg}</g></svg>`;
+    } else {
+        return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <g fill="none" stroke="${d.color}" stroke-width="5" stroke-dasharray="11 7"
+               stroke-linejoin="round" opacity="0.7">${d.svg}</g></svg>`;
+    }
+}
+
+/* ── Stars ── */
+const starsEl = document.getElementById('stars');
+for (let i = 0; i < 65; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const sz = (Math.random() * 2.4 + 0.7).toFixed(1);
+    s.style.cssText =
+        'width:' + sz + 'px;height:' + sz + 'px;' +
+        'left:' + (Math.random()*100).toFixed(1) + '%;' +
+        'top:'  + (Math.random()*100).toFixed(1) + '%;' +
+        '--d:'  + (Math.random()*3+2).toFixed(1) + 's;' +
+        '--delay:-' + (Math.random()*5).toFixed(1) + 's';
+    starsEl.appendChild(s);
+}
+
+/* ── State ── */
+const SNAP_R = 88;
+let round = [], placed = 0;
+let targetEls = {}, pieceEls = {};
+let drag = null;
+
+/* ── Piece size (responsive) ── */
+function calcSz() {
+    const w = Math.min(window.innerWidth, 420) - 28;
+    return Math.min(100, Math.floor((w - 48) / 3));
+}
+
+/* ── New round ── */
+function newRound() {
+    placed = 0; targetEls = {}; pieceEls = {};
+    const sz = calcSz();
+    document.getElementById('game').style.setProperty('--sz', sz + 'px');
+
+    const shuffledAll = [...ALL].sort(() => Math.random() - 0.5);
+    round = shuffledAll.slice(0, 3);
+
+    const tArea = document.getElementById('targets');
+    const pArea = document.getElementById('pieces');
+    tArea.innerHTML = '';
+    pArea.innerHTML = '';
+    document.getElementById('status').textContent = 'Drag a shape to its outline! ✨';
+
+    /* Targets */
+    round.forEach(shape => {
+        const div = document.createElement('div');
+        div.className = 'target';
+        div.dataset.shape = shape;
+        div.innerHTML =
+            '<div class="t-bg"></div>' +
+            '<svg class="t-outline" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' +
+              '<g fill="none" stroke="' + DEFS[shape].color + '" stroke-width="5" ' +
+              'stroke-dasharray="11 7" stroke-linejoin="round" opacity="0.7">' +
+              DEFS[shape].svg + '</g></svg>' +
+            '<svg class="t-fill" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' +
+              '<g fill="' + DEFS[shape].color + '" stroke="none" stroke-linejoin="round">' +
+              DEFS[shape].svg + '</g></svg>' +
+            '<span class="t-check">✅</span>';
+        tArea.appendChild(div);
+        targetEls[shape] = div;
+    });
+
+    /* Pieces (shuffled order) */
+    const pOrder = [...round].sort(() => Math.random() - 0.5);
+    pOrder.forEach(shape => {
+        const div = document.createElement('div');
+        div.className = 'piece';
+        div.dataset.shape = shape;
+        div.innerHTML =
+            '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' +
+            '<g fill="' + DEFS[shape].color + '" stroke="none" stroke-linejoin="round">' +
+            DEFS[shape].svg + '</g></svg>';
+        div.addEventListener('touchstart', onTouchStart, { passive: false });
+        div.addEventListener('mousedown', onMouseDown);
+        pArea.appendChild(div);
+        pieceEls[shape] = div;
+    });
+}
+
+/* ── Drag helpers ── */
+function startDrag(piece, cx, cy) {
+    if (piece.classList.contains('placed')) return;
+    if (drag) return;
+
+    const rect = piece.getBoundingClientRect();
+    const sz = rect.width;
+
+    /* Floating clone */
+    const float = document.createElement('div');
+    float.className = 'piece-float';
+    float.style.width  = sz + 'px';
+    float.style.height = sz + 'px';
+    float.innerHTML = piece.innerHTML;
+    document.body.appendChild(float);
+
+    piece.style.opacity = '0.25';
+
+    drag = {
+        piece, float, sz,
+        shape: piece.dataset.shape,
+        homeL: rect.left,
+        homeT: rect.top
+    };
+    moveDrag(cx, cy);
+}
+
+function moveDrag(cx, cy) {
+    if (!drag) return;
+    drag.float.style.left = (cx - drag.sz / 2) + 'px';
+    drag.float.style.top  = (cy - drag.sz / 2) + 'px';
+}
+
+function endDrag(cx, cy) {
+    if (!drag) return;
+    const { piece, float, sz, shape, homeL, homeT } = drag;
+    drag = null;
+
+    const target = targetEls[shape];
+    if (!target.classList.contains('matched')) {
+        const tr = target.getBoundingClientRect();
+        const tcx = tr.left + tr.width  / 2;
+        const tcy = tr.top  + tr.height / 2;
+        const dist = Math.hypot(cx - tcx, cy - tcy);
+
+        if (dist < SNAP_R) {
+            /* Snap! */
+            float.style.transition =
+                'left .25s cubic-bezier(0.34,1.5,0.64,1), top .25s cubic-bezier(0.34,1.5,0.64,1)';
+            float.style.left = (tcx - sz / 2) + 'px';
+            float.style.top  = (tcy - sz / 2) + 'px';
+            setTimeout(() => {
+                float.remove();
+                piece.style.opacity = '';
+                piece.classList.add('placed');
+                target.classList.add('matched');
+                placed++;
+                if (placed === round.length) setTimeout(celebrate, 500);
+            }, 270);
+            return;
+        }
+    }
+
+    /* Bounce back */
+    float.style.transition =
+        'left .38s cubic-bezier(0.34,1.5,0.64,1), top .38s cubic-bezier(0.34,1.5,0.64,1)';
+    float.style.left = homeL + 'px';
+    float.style.top  = homeT + 'px';
+    setTimeout(() => {
+        float.remove();
+        piece.style.opacity = '';
+    }, 400);
+}
+
+/* ── Events: touch ── */
+function onTouchStart(e) {
+    e.preventDefault();
+    const t = e.touches[0];
+    startDrag(e.currentTarget, t.clientX, t.clientY);
+}
+document.addEventListener('touchmove', e => {
+    if (!drag) return;
+    e.preventDefault();
+    moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: false });
+document.addEventListener('touchend', e => {
+    if (!drag) return;
+    const t = e.changedTouches[0];
+    endDrag(t.clientX, t.clientY);
+}, { passive: false });
+
+/* ── Events: mouse ── */
+function onMouseDown(e) { startDrag(e.currentTarget, e.clientX, e.clientY); }
+document.addEventListener('mousemove', e => { moveDrag(e.clientX, e.clientY); });
+document.addEventListener('mouseup',   e => { endDrag(e.clientX, e.clientY); });
+
+/* ── Celebrate ── */
+function celebrate() {
+    document.getElementById('status').textContent = '🎉 You did it! Amazing!';
+    launchConfetti(75);
+    setTimeout(newRound, 2400);
+}
+
+function launchConfetti(n) {
+    const wrap = document.getElementById('confetti');
+    wrap.innerHTML = '';
+    const colors = ['#ffd700','#ff6bbd','#a855f7','#38bdf8','#34d399','#fb923c','#f43f5e'];
+    for (let i = 0; i < n; i++) {
+        const p = document.createElement('div');
+        p.className = 'cp';
+        const w = Math.random()*10+5, h = Math.random()*10+5;
+        p.style.cssText =
+            'left:'  + (Math.random()*100).toFixed(1) + '%;' +
+            'width:' + w.toFixed(1) + 'px;height:' + h.toFixed(1) + 'px;' +
+            'background:' + colors[i % colors.length] + ';' +
+            'border-radius:' + (Math.random() > 0.5 ? '50%' : '2px') + ';' +
+            '--fd:' + (Math.random()*2+1.4).toFixed(2) + 's;' +
+            '--del:' + (Math.random()*0.55).toFixed(2) + 's';
+        wrap.appendChild(p);
+    }
+}
+
+/* ── Boot ── */
+newRound();
+</script>
+</body>
+</html>
