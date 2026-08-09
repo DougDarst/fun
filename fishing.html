@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🎣 Fishing! — Ellie &amp; Grandpa</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+        html, body { width:100%; height:100%; height:100dvh; overflow:hidden; background:#140030; }
+
+        canvas { position:fixed; inset:0; z-index:0; display:block; }
+
+        /* ── HUD ── */
+        #hud {
+            position:fixed; top:0; left:0; right:0; z-index:2;
+            display:flex; flex-direction:column; align-items:center;
+            padding:14px 14px 0; gap:10px; pointer-events:none;
+        }
+        .top-bar {
+            width:100%; max-width:420px;
+            display:flex; align-items:center; gap:10px; pointer-events:all;
+        }
+        .back-btn {
+            background:rgba(255,255,255,0.12); border:1.5px solid rgba(255,255,255,0.2);
+            color:white; border-radius:50px; padding:8px 14px; font-size:0.82rem;
+            font-weight:700; text-decoration:none; white-space:nowrap; flex-shrink:0;
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        }
+        .back-btn:active { background:rgba(255,255,255,0.22); }
+        h1 {
+            flex:1; text-align:center; font-size:1.35rem; font-weight:900; color:white;
+            text-shadow:0 0 20px rgba(255,200,80,0.8); letter-spacing:1px;
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        }
+        .top-spacer { flex-shrink:0; width:74px; }
+
+        .stats-row {
+            display:flex; gap:10px; width:100%; max-width:420px;
+        }
+        .stat-card {
+            flex:1; background:rgba(255,255,255,0.1);
+            backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+            border:1.5px solid rgba(255,255,255,0.15); border-radius:18px;
+            padding:8px 6px; text-align:center;
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        }
+        .stat-icon  { font-size:1.1rem; }
+        .stat-value { font-size:1.7rem; font-weight:900; color:#ffd700;
+                      text-shadow:0 0 8px rgba(255,215,0,0.5); line-height:1.1; }
+        .stat-label { font-size:0.58rem; color:rgba(255,255,255,0.4);
+                      letter-spacing:2px; text-transform:uppercase; }
+        .timer-card .stat-value { color:white; }
+        .timer-card.urgent .stat-value { color:#ef4444; animation:tpulse 0.5s ease infinite alternate; }
+        @keyframes tpulse { from{opacity:1} to{opacity:0.35} }
+        @keyframes bump {
+            0%{transform:scale(1)} 45%{transform:scale(1.28)} 100%{transform:scale(1)}
+        }
+        .bump { animation:bump 0.32s cubic-bezier(0.34,1.7,0.64,1); }
+
+        /* ── Overlay ── */
+        .overlay {
+            position:fixed; inset:0; background:rgba(5,0,20,0.82);
+            backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+            display:flex; align-items:center; justify-content:center;
+            z-index:100; opacity:0; pointer-events:none; transition:opacity 0.4s;
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        }
+        .overlay.show { opacity:1; pointer-events:all; }
+        .result-card {
+            background:linear-gradient(145deg,rgba(50,0,90,0.97),rgba(10,15,80,0.97));
+            border:2.5px solid rgba(255,215,0,0.55); border-radius:30px;
+            padding:36px 28px 30px; text-align:center; max-width:320px; width:88%;
+            box-shadow:0 0 60px rgba(255,215,0,0.2),0 24px 60px rgba(0,0,0,0.6);
+            animation:cardIn 0.5s cubic-bezier(0.34,1.5,0.64,1); color:white;
+        }
+        @keyframes cardIn {
+            from{transform:scale(0.55) translateY(50px);opacity:0}
+            to  {transform:scale(1)   translateY(0);   opacity:1}
+        }
+        .r-emoji { font-size:4rem; display:block; margin-bottom:8px; }
+        .r-title { font-size:1.8rem; font-weight:900; color:#ffd700;
+                   text-shadow:0 0 20px rgba(255,215,0,0.7); margin-bottom:6px; }
+        .r-score { font-size:1rem; color:rgba(255,255,255,0.75); margin-bottom:4px; }
+        .r-best  { font-size:0.82rem; color:rgba(255,215,0,0.65); margin-bottom:22px; min-height:1.2em; }
+        .play-again-btn {
+            background:linear-gradient(135deg,#ffd700,#ff8800); color:#1a0033;
+            border:none; border-radius:50px; padding:14px 36px;
+            font-size:1.1rem; font-weight:900; cursor:pointer;
+            box-shadow:0 6px 24px rgba(255,140,0,0.5); touch-action:manipulation;
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        }
+        .play-again-btn:active { transform:scale(0.93); }
+
+        /* ── Confetti ── */
+        .confetti-wrap { position:fixed; inset:0; pointer-events:none; z-index:99; overflow:hidden; }
+        .cp { position:absolute; top:-14px; animation:fall var(--fd) ease-in var(--del) forwards; }
+        @keyframes fall {
+            0%  {transform:translateY(0) rotate(0deg);   opacity:1}
+            100%{transform:translateY(110vh) rotate(720deg); opacity:0}
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div id="hud">
+    <div class="top-bar">
+        <a class="back-btn" href="index.html">← Games</a>
+        <h1>🎣 Fishing!</h1>
+        <div class="top-spacer"></div>
+    </div>
+    <div class="stats-row">
+        <div class="stat-card" id="scoreCard">
+            <div class="stat-icon">⭐</div>
+            <div class="stat-value" id="scoreVal">0</div>
+            <div class="stat-label">score</div>
+        </div>
+        <div class="stat-card timer-card" id="timerCard">
+            <div class="stat-icon">⏱️</div>
+            <div class="stat-value" id="timerVal">60</div>
+            <div class="stat-label">seconds</div>
+        </div>
+        <div class="stat-card" id="caughtCard">
+            <div class="stat-icon">🐟</div>
+            <div class="stat-value" id="caughtVal">0</div>
+            <div class="stat-label">caught</div>
+        </div>
+    </div>
+</div>
+
+<div class="overlay" id="overlay">
+    <div class="result-card">
+        <span class="r-emoji" id="rEmoji">🎣</span>
+        <div class="r-title"  id="rTitle">Time's Up!</div>
+        <div class="r-score"  id="rScore">You caught 0 fish</div>
+        <div class="r-best"   id="rBest"></div>
+        <button class="play-again-btn" onclick="startGame()">Fish Again! 🎣</button>
+    </div>
+</div>
+
+<div class="confetti-wrap" id="confetti"></div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+
+/* ── Fish types ── */
+const FISH = [
+    { e:'🐠', pts:10, spd:2.2, sz:36, w:5 },
+    { e:'🐟', pts:10, spd:1.8, sz:38, w:5 },
+    { e:'🐡', pts:25, spd:1.0, sz:46, w:2 },
+    { e:'🐬', pts:35, spd:3.4, sz:42, w:1 },
+    { e:'🦑', pts:20, spd:1.4, sz:40, w:2 },
+    { e:'🐙', pts:30, spd:0.9, sz:50, w:1 },
+    { e:'🦀', pts:15, spd:0.7, sz:34, w:2 },
+    { e:'⭐', pts:50, spd:1.1, sz:32, w:1 },
+];
+const TOTAL_W = FISH.reduce((s, f) => s + f.w, 0);
+
+/* ── Dimensions ── */
+let W, H, waterY, hudBottom;
+
+function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    hudBottom = document.getElementById('hud').getBoundingClientRect().bottom + 10;
+    waterY = hudBottom + (H - hudBottom) * 0.30;
+    if (seaweeds.length === 0 || stars.length === 0) buildScene();
+    else { buildScene(); }
+    if (hookX === undefined) { hookX = W / 2; hookY = waterY + (H - waterY) * 0.4; }
+    hookY = Math.max(waterY + 35, Math.min(H - 35, hookY));
+}
+
+/* ── Static scene ── */
+let stars = [], seaweeds = [];
+function buildScene() {
+    stars = Array.from({length:55}, () => ({
+        x: Math.random() * W,
+        y: Math.random() * (waterY - hudBottom * 0.5) + hudBottom * 0.2,
+        r: Math.random() * 1.4 + 0.4,
+        ph: Math.random() * Math.PI * 2
+    }));
+    seaweeds = Array.from({length:8}, () => ({
+        x: Math.random() * W,
+        h: 30 + Math.random() * 50,
+        ph: Math.random() * Math.PI * 2
+    }));
+}
+
+/* ── State ── */
+let hookX, hookY;
+let score = 0, caught = 0, timeLeft = 60, active = false;
+let fish = [], bubbles = [], popups = [];
+let waveT = 0, lastTs = 0;
+let spawnTmr = null, cdTmr = null;
+let bestScore = parseInt(localStorage.getItem('fishBest') || '0', 10);
+
+/* ── Hook control ── */
+function moveHook(cx, cy) {
+    hookX = cx;
+    hookY = Math.max(waterY + 35, Math.min(H - 35, cy));
+}
+
+canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (!active) { startGame(); return; }
+    moveHook(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive:false });
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (active) moveHook(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive:false });
+canvas.addEventListener('mousedown', e => { if (!active) startGame(); else moveHook(e.clientX, e.clientY); });
+window.addEventListener('mousemove', e => { if (active) moveHook(e.clientX, e.clientY); });
+
+/* ── Spawn ── */
+function pickFish() {
+    let r = Math.random() * TOTAL_W;
+    for (const f of FISH) { r -= f.w; if (r <= 0) return f; }
+    return FISH[0];
+}
+
+function spawnFish() {
+    if (!active || fish.length >= 7) return;
+    const t = pickFish();
+    const left = Math.random() > 0.5;
+    const spd  = t.spd * (1 + (60 - timeLeft) / 80);
+    fish.push({
+        e: t.e, pts: t.pts, sz: t.sz,
+        x: left ? -t.sz : W + t.sz,
+        y: waterY + 45 + Math.random() * (H - waterY - 100),
+        vx: left ? spd : -spd,
+        ph: Math.random() * Math.PI * 2,
+        catching: false, cT: 0
+    });
+}
+
+function spawnBubble() {
+    bubbles.push({
+        x: Math.random() * W,
+        y: H - 40,
+        r: Math.random() * 3 + 1,
+        vy: -(0.4 + Math.random() * 0.6),
+        a: 0.25 + Math.random() * 0.3
+    });
+}
+
+/* ── Draw helpers ── */
+function drawSky() {
+    const g = ctx.createLinearGradient(0, 0, 0, waterY);
+    g.addColorStop(0,   '#140030');
+    g.addColorStop(0.5, '#0a1560');
+    g.addColorStop(1,   '#0d2878');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, waterY);
+}
+
+function drawMoon() {
+    const mx = W * 0.82, my = hudBottom + 38;
+    ctx.save();
+    ctx.shadowColor = 'rgba(255,248,190,0.55)';
+    ctx.shadowBlur = 28;
+    ctx.fillStyle = '#fff8d0';
+    ctx.beginPath(); ctx.arc(mx, my, 22, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#140030';
+    ctx.beginPath(); ctx.arc(mx + 9, my - 4, 17, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+}
+
+function drawStars(t) {
+    stars.forEach(s => {
+        ctx.globalAlpha = 0.35 + 0.55 * Math.sin(t * 1.8 + s.ph);
+        ctx.fillStyle = 'white';
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+}
+
+function drawWater() {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(0, waterY);
+    for (let x = 0; x <= W; x += 3) {
+        ctx.lineTo(x, waterY + Math.sin(x * 0.04 + waveT) * 5 + Math.sin(x * 0.09 + waveT * 1.7) * 2);
+    }
+    ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+    const g = ctx.createLinearGradient(0, waterY, 0, H);
+    g.addColorStop(0,    '#0e4285');
+    g.addColorStop(0.25, '#072858');
+    g.addColorStop(1,    '#010b1c');
+    ctx.fillStyle = g; ctx.fill();
+
+    // Light shafts
+    for (let i = 0; i < 3; i++) {
+        const sx = W * (0.18 + i * 0.32);
+        const sg = ctx.createLinearGradient(0, waterY, 0, waterY + (H - waterY) * 0.65);
+        sg.addColorStop(0,   'rgba(100,190,255,0.05)');
+        sg.addColorStop(1,   'rgba(100,190,255,0)');
+        ctx.fillStyle = sg;
+        ctx.beginPath();
+        ctx.moveTo(sx - 12, waterY); ctx.lineTo(sx + 12, waterY);
+        ctx.lineTo(sx + 45, waterY + (H - waterY) * 0.65);
+        ctx.lineTo(sx - 45, waterY + (H - waterY) * 0.65);
+        ctx.fill();
+    }
+
+    // Surface glow
+    ctx.beginPath();
+    ctx.moveTo(0, waterY);
+    for (let x = 0; x <= W; x += 3) {
+        ctx.lineTo(x, waterY + Math.sin(x * 0.04 + waveT) * 5 + Math.sin(x * 0.09 + waveT * 1.7) * 2);
+    }
+    ctx.strokeStyle = 'rgba(90,170,255,0.4)'; ctx.lineWidth = 2; ctx.stroke();
+
+    // Moon shimmer
+    const shX = W * 0.82;
+    for (let i = 0; i < 4; i++) {
+        ctx.globalAlpha = 0.07 - i * 0.015;
+        ctx.fillStyle = '#ffe';
+        ctx.beginPath();
+        ctx.ellipse(shX, waterY + 10 + i * 9, 30 - i * 5, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+}
+
+function drawSeabed() {
+    const g = ctx.createLinearGradient(0, H - 50, 0, H);
+    g.addColorStop(0, 'rgba(155,120,50,0.5)');
+    g.addColorStop(1, 'rgba(85,60,18,0.8)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, H - 50, W, 50);
+}
+
+function drawSeaweed(sw, t) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(20,170,70,0.55)';
+    ctx.lineWidth = 3; ctx.lineCap = 'round';
+    const segs = 5;
+    ctx.beginPath();
+    ctx.moveTo(sw.x, H - 50);
+    for (let i = 1; i <= segs; i++) {
+        const endY = H - 50 - (sw.h * i / segs);
+        const sw2  = Math.sin(t * 0.85 + sw.ph + i) * 13;
+        ctx.quadraticCurveTo(sw.x - sw2, endY + sw.h / segs * 0.5, sw.x + sw2 * 0.5, endY);
+    }
+    ctx.stroke();
+    ctx.restore();
+}
+
+function drawBubbles() {
+    ctx.save();
+    bubbles.forEach(b => {
+        ctx.strokeStyle = `rgba(140,210,255,${b.a})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.stroke();
+    });
+    ctx.restore();
+}
+
+function drawFish(f, t) {
+    ctx.save();
+    const fy = f.y + Math.sin(f.ph + t * 1.4) * 3;
+    ctx.translate(f.x, fy);
+    if (f.vx < 0) ctx.scale(-1, 1);
+    if (f.catching) {
+        const sc = 1 + Math.sin(f.cT * Math.PI) * 0.5;
+        ctx.scale(sc, sc);
+        ctx.globalAlpha = 1 - f.cT;
+    }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = f.sz + 'px serif';
+    ctx.fillText(f.e, 0, 0);
+    ctx.restore();
+}
+
+function drawLineAndHook() {
+    if (!active && !fish.length) return;
+    const rtX = W * 0.5;
+    const rtY = hudBottom + 8;
+    const dx  = hookX - rtX;
+
+    // Line
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(rtX, rtY);
+    ctx.quadraticCurveTo(
+        (rtX + hookX) / 2,
+        (rtY + hookY) / 2 + Math.abs(dx) * 0.08 + 12,
+        hookX, hookY - 8
+    );
+    ctx.strokeStyle = 'rgba(225,215,160,0.9)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    // Short rod above line
+    ctx.beginPath();
+    ctx.moveTo(rtX - 18, hudBottom - 6);
+    ctx.lineTo(rtX + 2, hudBottom + 8);
+    ctx.strokeStyle = 'rgba(175,125,55,0.95)';
+    ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.stroke();
+
+    // Hook
+    ctx.translate(hookX, hookY);
+    ctx.strokeStyle = '#c8a030'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, -8); ctx.lineTo(0, 4);
+    ctx.arc(5, 4, 5, Math.PI, Math.PI * 0.45, true);
+    ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, -10, 2.5, 0, Math.PI * 2);
+    ctx.lineWidth = 2; ctx.stroke();
+    ctx.restore();
+}
+
+function drawPopups() {
+    ctx.save();
+    popups.forEach(p => {
+        ctx.globalAlpha = p.life;
+        ctx.font = 'bold 18px sans-serif';
+        ctx.fillStyle = '#ffd700';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 4;
+        ctx.fillText(p.text, p.x, p.y);
+    });
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    ctx.restore();
+}
+
+function drawHint() {
+    if (active) return;
+    ctx.save();
+    ctx.globalAlpha = 0.65 + 0.3 * Math.sin(waveT * 2.5);
+    ctx.font = 'bold 18px sans-serif';
+    ctx.fillStyle = 'white';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 8;
+    ctx.fillText('Tap to start! 🎣', W / 2, H / 2 + 10);
+    ctx.restore();
+}
+
+/* ── Update ── */
+function checkHits() {
+    for (let i = fish.length - 1; i >= 0; i--) {
+        const f = fish[i];
+        if (f.catching) continue;
+        const fy  = f.y + Math.sin(f.ph) * 3;
+        const hit = Math.abs(hookX - f.x) < f.sz * 0.52
+                 && Math.abs(hookY - fy)  < f.sz * 0.4;
+        if (hit) {
+            f.catching = true; f.cT = 0;
+            score += f.pts; caught++;
+            document.getElementById('scoreVal').textContent = score;
+            document.getElementById('caughtVal').textContent = caught;
+            bump('scoreCard'); bump('caughtCard');
+            popups.push({ x: f.x, y: f.y - 22, text: '+' + f.pts, life: 1 });
+        }
+    }
+}
+
+function bump(id) {
+    const el = document.getElementById(id);
+    el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+}
+
+/* ── Main loop ── */
+function loop(ts) {
+    const dt = Math.min((ts - (lastTs || ts)) / 1000, 0.08);
+    lastTs = ts;
+    waveT += dt * 1.2;
+
+    ctx.clearRect(0, 0, W, H);
+    drawSky();
+    drawStars(waveT);
+    drawMoon();
+    drawWater();
+    drawSeabed();
+    seaweeds.forEach(sw => drawSeaweed(sw, waveT));
+    drawBubbles();
+    fish.forEach(f => drawFish(f, waveT));
+    drawLineAndHook();
+    drawPopups();
+    drawHint();
+
+    if (active) {
+        checkHits();
+
+        // Update fish
+        for (let i = fish.length - 1; i >= 0; i--) {
+            const f = fish[i];
+            if (f.catching) {
+                f.cT += dt * 3;
+                if (f.cT >= 1) fish.splice(i, 1);
+            } else {
+                f.x += f.vx;
+                f.ph += 0.022;
+                if ((f.vx > 0 && f.x > W + f.sz) || (f.vx < 0 && f.x < -f.sz)) fish.splice(i, 1);
+            }
+        }
+
+        // Update bubbles
+        for (let i = bubbles.length - 1; i >= 0; i--) {
+            bubbles[i].y += bubbles[i].vy;
+            bubbles[i].x += Math.sin(bubbles[i].y * 0.05) * 0.3;
+            if (bubbles[i].y < waterY) bubbles.splice(i, 1);
+        }
+        if (bubbles.length < 22 && Math.random() < 0.1) spawnBubble();
+
+        // Update popups
+        for (let i = popups.length - 1; i >= 0; i--) {
+            popups[i].life -= dt * 1.5;
+            popups[i].y    -= dt * 45;
+            if (popups[i].life <= 0) popups.splice(i, 1);
+        }
+    }
+
+    requestAnimationFrame(loop);
+}
+
+/* ── Start / End ── */
+function startGame() {
+    score = 0; caught = 0; timeLeft = 60; active = true;
+    fish = []; bubbles = []; popups = [];
+    hookX = W / 2; hookY = waterY + (H - waterY) * 0.4;
+
+    document.getElementById('scoreVal').textContent  = 0;
+    document.getElementById('caughtVal').textContent = 0;
+    document.getElementById('timerVal').textContent  = 60;
+    document.getElementById('timerCard').classList.remove('urgent');
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('confetti').innerHTML = '';
+
+    clearInterval(spawnTmr);
+    clearInterval(cdTmr);
+
+    // Seed with a few fish right away
+    for (let i = 0; i < 3; i++) setTimeout(() => { if (active) spawnFish(); }, i * 350);
+    spawnTmr = setInterval(() => { if (active) spawnFish(); }, 1500);
+
+    cdTmr = setInterval(() => {
+        timeLeft--;
+        document.getElementById('timerVal').textContent = timeLeft;
+        if (timeLeft <= 10) document.getElementById('timerCard').classList.add('urgent');
+        if (timeLeft <= 0) {
+            clearInterval(cdTmr); clearInterval(spawnTmr); endGame();
+        }
+    }, 1000);
+}
+
+function endGame() {
+    active = false;
+    const isNew = score > bestScore;
+    if (isNew) { bestScore = score; localStorage.setItem('fishBest', bestScore); }
+
+    let emoji, title;
+    if      (caught >= 12) { emoji = '🏆'; title = 'Master Angler!'; }
+    else if (caught >= 7)  { emoji = '🎣'; title = 'Great Catch!'; }
+    else if (caught >= 3)  { emoji = '🐟'; title = 'Nice Fishing!'; }
+    else                   { emoji = '🌊'; title = 'Keep Trying!'; }
+
+    document.getElementById('rEmoji').textContent = emoji;
+    document.getElementById('rTitle').textContent = title;
+    document.getElementById('rScore').textContent = 'You caught ' + caught + ' fish (' + score + ' pts)';
+    document.getElementById('rBest').textContent  = isNew ? '🏆 New best score!'
+        : (bestScore > 0 ? 'Best: ' + bestScore + ' pts' : '');
+    document.getElementById('overlay').classList.add('show');
+    if (caught >= 3) launchConfetti(caught >= 7 ? 80 : 40);
+}
+
+function launchConfetti(n) {
+    const wrap = document.getElementById('confetti');
+    wrap.innerHTML = '';
+    const colors = ['#ffd700','#ff6bbd','#a855f7','#38bdf8','#34d399','#fb923c','#f43f5e'];
+    for (let i = 0; i < n; i++) {
+        const p = document.createElement('div');
+        p.className = 'cp';
+        const w = Math.random()*10+5, h2 = Math.random()*10+5;
+        p.style.cssText =
+            'left:'  + (Math.random()*100).toFixed(1) + '%;' +
+            'width:' + w.toFixed(1)  + 'px;height:' + h2.toFixed(1) + 'px;' +
+            'background:' + colors[i % colors.length] + ';' +
+            'border-radius:' + (Math.random() > 0.5 ? '50%' : '2px') + ';' +
+            '--fd:' + (Math.random()*2+1.4).toFixed(2) + 's;' +
+            '--del:' + (Math.random()*0.55).toFixed(2) + 's';
+        wrap.appendChild(p);
+    }
+}
+
+/* ── Boot ── */
+window.addEventListener('resize', resize);
+resize();
+hookX = W / 2;
+hookY = waterY + (H - waterY) * 0.4;
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
