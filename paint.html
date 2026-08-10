@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🖌️ Paint! — Ellie &amp; Grandpa</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+        html, body { height:100%; height:100dvh; overflow:hidden;
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+
+        body { display:flex; flex-direction:column; background:#1a0040; }
+
+        /* ── Top bar ── */
+        .top-bar {
+            flex-shrink:0; display:flex; align-items:center; gap:8px;
+            padding:11px 14px 9px;
+            background:rgba(0,0,0,0.35); backdrop-filter:blur(8px);
+            border-bottom:1px solid rgba(255,255,255,0.1);
+        }
+        .back-btn {
+            background:rgba(255,255,255,0.12); border:1.5px solid rgba(255,255,255,0.2);
+            color:white; border-radius:50px; padding:7px 13px; font-size:0.8rem;
+            font-weight:700; text-decoration:none; white-space:nowrap; flex-shrink:0;
+        }
+        .back-btn:active { background:rgba(255,255,255,0.22); }
+        h1 { flex:1; text-align:center; font-size:1.2rem; font-weight:900; color:white;
+             text-shadow:0 0 18px rgba(255,200,80,0.8); }
+        .tb-btn {
+            flex-shrink:0;
+            background:rgba(255,255,255,0.1); border:1.5px solid rgba(255,255,255,0.18);
+            color:white; border-radius:50px; padding:7px 12px;
+            font-size:0.8rem; font-weight:700; cursor:pointer; touch-action:manipulation;
+            white-space:nowrap;
+        }
+        .tb-btn:active { background:rgba(255,255,255,0.25); }
+
+        /* ── Canvas ── */
+        #canvas {
+            flex:1; display:block; width:100%;
+            cursor:crosshair; touch-action:none; background:white;
+        }
+
+        /* ── Palette bar ── */
+        #palette {
+            flex-shrink:0; height:80px;
+            display:flex; align-items:center; gap:0;
+            background:rgba(0,0,0,0.38); backdrop-filter:blur(12px);
+            border-top:1.5px solid rgba(255,255,255,0.12);
+            padding:0 10px;
+        }
+
+        /* Brush size section */
+        .brush-sec {
+            flex-shrink:0; display:flex; align-items:center; gap:7px;
+            padding-right:10px;
+            border-right:1px solid rgba(255,255,255,0.14);
+            margin-right:10px;
+        }
+        .sz-btn {
+            width:40px; height:40px; border-radius:50%;
+            background:rgba(255,255,255,0.06); border:1.5px solid rgba(255,255,255,0.18);
+            display:flex; align-items:center; justify-content:center;
+            cursor:pointer; touch-action:manipulation; transition:border-color 0.14s;
+        }
+        .sz-btn .dot { border-radius:50%; background:rgba(255,255,255,0.6); }
+        .sz-btn.active { border-color:white; background:rgba(255,255,255,0.18); }
+        .sz-btn.active .dot { background:white; }
+
+        /* Scrollable color swatches */
+        .swatch-scroll {
+            flex:1; display:flex; align-items:center; gap:8px;
+            overflow-x:auto; -webkit-overflow-scrolling:touch;
+            padding:4px 0;
+        }
+        .swatch-scroll::-webkit-scrollbar { display:none; }
+        .swatch {
+            flex-shrink:0; width:46px; height:46px; border-radius:50%;
+            border:3px solid rgba(255,255,255,0.25);
+            cursor:pointer; touch-action:manipulation;
+            transition:transform 0.12s, border-color 0.12s, box-shadow 0.12s;
+        }
+        .swatch:active { transform:scale(0.86); }
+        .swatch.active {
+            border-color:white; transform:scale(1.18);
+            box-shadow:0 0 0 3px rgba(255,255,255,0.4);
+        }
+        .swatch.white-swatch {
+            border-style:dashed; border-color:rgba(255,255,255,0.5);
+        }
+        .swatch.white-swatch.active { border-color:white; }
+
+        /* Rainbow + eraser section */
+        .special-sec {
+            flex-shrink:0; display:flex; align-items:center; gap:8px;
+            padding-left:10px;
+            border-left:1px solid rgba(255,255,255,0.14);
+            margin-left:10px;
+        }
+        .sp-btn {
+            flex-shrink:0; width:46px; height:46px; border-radius:50%;
+            border:3px solid rgba(255,255,255,0.25);
+            display:flex; align-items:center; justify-content:center;
+            font-size:1.4rem; cursor:pointer; touch-action:manipulation;
+            transition:transform 0.12s, border-color 0.12s, box-shadow 0.12s;
+        }
+        .sp-btn:active { transform:scale(0.86); }
+        .sp-btn.active {
+            border-color:white; transform:scale(1.18);
+            box-shadow:0 0 0 3px rgba(255,255,255,0.4);
+        }
+    </style>
+</head>
+<body>
+
+<div class="top-bar">
+    <a class="back-btn" href="index.html">← Games</a>
+    <h1>🖌️ Paint!</h1>
+    <button class="tb-btn" onclick="undoStroke()">↩️ Undo</button>
+    <button class="tb-btn" onclick="clearCanvas()">🗑️ Clear</button>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<div id="palette">
+    <div class="brush-sec" id="brushSec"></div>
+    <div class="swatch-scroll" id="swatchScroll"></div>
+    <div class="special-sec" id="specialSec"></div>
+</div>
+
+<script>
+/* ── Config ── */
+const COLORS = [
+    '#000000','#6b7280','#ef4444','#f97316','#f59e0b',
+    '#eab308','#84cc16','#22c55e','#14b8a6','#38bdf8',
+    '#3b82f6','#6366f1','#a855f7','#ec4899','#f43f5e',
+    '#92400e','#d97706','#fde68a',
+];
+
+const BRUSHES = [
+    { r:4,  dot:8  },
+    { r:13, dot:20 },
+    { r:27, dot:34 },
+];
+
+/* ── State ── */
+const canvasEl = document.getElementById('canvas');
+const ctx = canvasEl.getContext('2d');
+let dpr = 1, canvasW = 0, canvasH = 0;
+let currentColor = '#ef4444';
+let brushRadius  = 13;
+let rainbowMode  = false;
+let rainbowHue   = 0;
+let drawing      = false;
+let lastPos      = null;
+const undoStack  = [];
+
+/* ── Canvas init / resize ── */
+function initCanvas(restore) {
+    dpr = window.devicePixelRatio || 1;
+    const rect = canvasEl.getBoundingClientRect();
+    canvasW = rect.width;
+    canvasH = rect.height;
+    canvasEl.width  = Math.round(canvasW * dpr);
+    canvasEl.height = Math.round(canvasH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (restore) {
+        const img = new Image();
+        img.onload = () => ctx.drawImage(img, 0, 0, canvasW, canvasH);
+        img.src = restore;
+    } else {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvasW, canvasH);
+    }
+}
+initCanvas(null);
+
+window.addEventListener('resize', () => {
+    const snap = canvasEl.toDataURL();
+    initCanvas(snap);
+});
+
+/* ── Undo ── */
+function saveState() {
+    undoStack.push(canvasEl.toDataURL('image/png'));
+    if (undoStack.length > 10) undoStack.shift();
+}
+function undoStroke() {
+    if (!undoStack.length) return;
+    const img = new Image();
+    img.onload = () => {
+        ctx.clearRect(0, 0, canvasW, canvasH);
+        ctx.drawImage(img, 0, 0, canvasW, canvasH);
+    };
+    img.src = undoStack.pop();
+}
+function clearCanvas() {
+    saveState();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvasW, canvasH);
+}
+
+/* ── Coords ── */
+function getPos(e) {
+    const rect = canvasEl.getBoundingClientRect();
+    const src  = e.touches ? (e.touches[0] || e.changedTouches[0]) : e;
+    return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+}
+
+/* ── Drawing ── */
+function pickColor() {
+    if (rainbowMode) {
+        const c = `hsl(${rainbowHue % 360},100%,55%)`;
+        rainbowHue += 4;
+        return c;
+    }
+    return currentColor;
+}
+
+function dot(pos) {
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, brushRadius, 0, Math.PI * 2);
+    ctx.fillStyle = pickColor();
+    ctx.fill();
+}
+
+function stroke(from, to) {
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.strokeStyle = pickColor();
+    ctx.lineWidth   = brushRadius * 2;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+    ctx.stroke();
+}
+
+/* ── Touch ── */
+canvasEl.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const pos = getPos(e);
+    saveState();
+    drawing = true; lastPos = pos;
+    dot(pos);
+}, { passive: false });
+
+canvasEl.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (!drawing) return;
+    const pos = getPos(e);
+    stroke(lastPos, pos);
+    lastPos = pos;
+}, { passive: false });
+
+canvasEl.addEventListener('touchend',   () => { drawing = false; lastPos = null; });
+canvasEl.addEventListener('touchcancel',() => { drawing = false; lastPos = null; });
+
+/* ── Mouse ── */
+canvasEl.addEventListener('mousedown', e => {
+    const pos = getPos(e);
+    saveState();
+    drawing = true; lastPos = pos;
+    dot(pos);
+});
+canvasEl.addEventListener('mousemove', e => {
+    if (!drawing) return;
+    const pos = getPos(e);
+    stroke(lastPos, pos);
+    lastPos = pos;
+});
+canvasEl.addEventListener('mouseup',    () => { drawing = false; });
+canvasEl.addEventListener('mouseleave', () => { drawing = false; });
+
+/* ── Build palette UI ── */
+
+// Helper: deselect all
+function deselectAll() {
+    document.querySelectorAll('.swatch,.sp-btn').forEach(el => el.classList.remove('active'));
+}
+
+// Brush size buttons
+const brushSec = document.getElementById('brushSec');
+BRUSHES.forEach(b => {
+    const btn = document.createElement('div');
+    btn.className = 'sz-btn' + (b.r === brushRadius ? ' active' : '');
+    btn.innerHTML = `<div class="dot" style="width:${b.dot}px;height:${b.dot}px"></div>`;
+    btn.addEventListener('click', () => {
+        brushRadius = b.r;
+        brushSec.querySelectorAll('.sz-btn').forEach(el => el.classList.remove('active'));
+        btn.classList.add('active');
+    });
+    brushSec.appendChild(btn);
+});
+
+// Color swatches
+const swatchScroll = document.getElementById('swatchScroll');
+let firstSwatch = null;
+
+COLORS.forEach(hex => {
+    const sw = document.createElement('div');
+    sw.className = 'swatch';
+    sw.style.background = hex;
+    if (hex === currentColor) firstSwatch = sw;
+
+    sw.addEventListener('click', () => {
+        currentColor = hex;
+        rainbowMode  = false;
+        deselectAll();
+        sw.classList.add('active');
+    });
+    swatchScroll.appendChild(sw);
+});
+
+// White eraser swatch
+const whiteSw = document.createElement('div');
+whiteSw.className = 'swatch white-swatch';
+whiteSw.style.background = '#ffffff';
+whiteSw.addEventListener('click', () => {
+    currentColor = '#ffffff';
+    rainbowMode  = false;
+    // switch to large brush for comfortable erasing
+    brushRadius = 27;
+    brushSec.querySelectorAll('.sz-btn').forEach((el, i) => {
+        el.classList.toggle('active', i === 2);
+    });
+    deselectAll();
+    whiteSw.classList.add('active');
+});
+swatchScroll.appendChild(whiteSw);
+
+// Rainbow button
+const specialSec = document.getElementById('specialSec');
+const rainbowBtn = document.createElement('div');
+rainbowBtn.className = 'sp-btn';
+rainbowBtn.textContent = '🌈';
+rainbowBtn.style.background = 'linear-gradient(135deg,#ef4444 0%,#f97316 20%,#eab308 40%,#22c55e 60%,#3b82f6 80%,#a855f7 100%)';
+rainbowBtn.addEventListener('click', () => {
+    rainbowMode = true;
+    deselectAll();
+    rainbowBtn.classList.add('active');
+});
+specialSec.appendChild(rainbowBtn);
+
+// Select initial swatch
+if (firstSwatch) firstSwatch.classList.add('active');
+</script>
+</body>
+</html>

@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🎨 Color Match! — Ellie &amp; Grandpa</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+        html, body { height:100%; height:100dvh; overflow:hidden;
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+
+        body {
+            display:flex; flex-direction:column; align-items:center;
+            background:linear-gradient(135deg,#1a0040,#0a1560,#2d0060,#0a1560,#1a0040);
+            background-size:400% 400%; animation:bgShift 12s ease infinite; color:white;
+        }
+        @keyframes bgShift {
+            0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%}
+        }
+
+        /* Stars */
+        .stars { position:fixed; inset:0; pointer-events:none; z-index:0; }
+        .star {
+            position:absolute; background:white; border-radius:50%;
+            animation:twinkle var(--d) ease-in-out infinite var(--delay); opacity:0;
+        }
+        @keyframes twinkle {
+            0%,100%{opacity:0;transform:scale(0.4)} 50%{opacity:0.9;transform:scale(1)}
+        }
+
+        /* Confetti */
+        .confetti-wrap { position:fixed; inset:0; pointer-events:none; z-index:99; overflow:hidden; }
+        .cp { position:absolute; top:-14px; animation:fall var(--fd) ease-in var(--del) forwards; }
+        @keyframes fall {
+            0%{transform:translateY(0) rotate(0deg);opacity:1}
+            100%{transform:translateY(110vh) rotate(720deg);opacity:0}
+        }
+
+        /* Game layout */
+        .game {
+            position:relative; z-index:1;
+            width:100%; max-width:480px; height:100%; height:100dvh;
+            display:flex; flex-direction:column; align-items:center;
+            padding:0 20px 16px;
+        }
+
+        /* Top bar */
+        .top-bar {
+            flex-shrink:0; display:flex; align-items:center; gap:10px;
+            width:100%; padding:14px 0 10px;
+        }
+        .back-btn {
+            background:rgba(255,255,255,0.12); border:1.5px solid rgba(255,255,255,0.2);
+            color:white; border-radius:50px; padding:8px 14px; font-size:0.82rem;
+            font-weight:700; text-decoration:none; white-space:nowrap; flex-shrink:0;
+        }
+        .back-btn:active { background:rgba(255,255,255,0.22); }
+        h1 { flex:1; text-align:center; font-size:1.3rem; font-weight:900;
+             text-shadow:0 0 20px rgba(255,200,80,0.8); }
+        .score-area { flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:3px; }
+        .score-pill {
+            background:rgba(255,215,0,0.18); border:1.5px solid rgba(255,215,0,0.4);
+            border-radius:50px; padding:5px 14px; display:flex; align-items:center; gap:5px;
+        }
+        .score-pill .num { font-size:1.15rem; font-weight:900; color:#ffd700; }
+        .score-pill .lbl { font-size:0.9rem; }
+        .streak-badge {
+            font-size:0.72rem; font-weight:800; color:#ff8c00;
+            text-shadow:0 0 8px rgba(255,140,0,0.7);
+            display:none; text-align:center;
+        }
+
+        /* Shape area (flex:1, vertically centered) */
+        .shape-area {
+            flex:1; display:flex; flex-direction:column; align-items:center;
+            justify-content:center; gap:14px; padding:8px 0;
+        }
+        .shape-card {
+            background:rgba(255,255,255,0.07); border:1.5px solid rgba(255,255,255,0.13);
+            border-radius:28px; padding:22px;
+            display:flex; align-items:center; justify-content:center;
+            backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+        }
+        .shape-card.pop { animation:shapePop 0.45s cubic-bezier(0.34,1.6,0.64,1); }
+        @keyframes shapePop {
+            0%{transform:scale(0.5);opacity:0.3}
+            65%{transform:scale(1.1)}
+            100%{transform:scale(1);opacity:1}
+        }
+
+        .prompt {
+            font-size:1.05rem; font-weight:700; opacity:0.8;
+            text-align:center;
+        }
+        .feedback {
+            min-height:2.4rem; font-size:1.7rem; font-weight:900;
+            text-align:center; letter-spacing:0.04em;
+            opacity:0; transition:opacity 0.18s;
+        }
+        .feedback.show { opacity:1; }
+
+        /* Color grid */
+        .color-grid {
+            flex-shrink:0; width:100%;
+            display:grid; grid-template-columns:1fr 1fr;
+            gap:14px;
+        }
+        .color-btn {
+            width:min(148px, calc(50vw - 34px));
+            height:min(148px, calc(50vw - 34px));
+            justify-self:center;
+            border-radius:50%;
+            border:4px solid rgba(255,255,255,0.35);
+            box-shadow:0 6px 28px rgba(0,0,0,0.45), inset 0 2px 8px rgba(255,255,255,0.18);
+            cursor:pointer; touch-action:manipulation;
+            transition:transform 0.1s;
+        }
+        .color-btn:active { transform:scale(0.88); }
+
+        /* Wrong answer */
+        .color-btn.shake { animation:shake 0.44s ease; }
+        @keyframes shake {
+            0%,100%{transform:scale(1) translateX(0)}
+            20%{transform:scale(0.92) translateX(-10px)}
+            40%{transform:scale(0.92) translateX(10px)}
+            60%{transform:scale(0.96) translateX(-6px)}
+            80%{transform:scale(0.96) translateX(6px)}
+        }
+
+        /* Correct answer */
+        .color-btn.correct-flash { animation:correctFlash 0.5s cubic-bezier(0.34,1.6,0.64,1); }
+        @keyframes correctFlash {
+            0%{transform:scale(1)}
+            40%{transform:scale(1.25);box-shadow:0 0 0 8px rgba(255,255,255,0.65)}
+            100%{transform:scale(1)}
+        }
+
+        /* Hint pulse for struggling players */
+        .color-btn.hint-pulse { animation:hintPulse 0.8s ease-in-out 3; }
+        @keyframes hintPulse {
+            0%,100%{transform:scale(1)}
+            50%{transform:scale(1.14);box-shadow:0 0 0 8px rgba(255,255,255,0.5),0 6px 28px rgba(0,0,0,0.45)}
+        }
+    </style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+<div class="confetti-wrap" id="confetti"></div>
+
+<div class="game">
+    <div class="top-bar">
+        <a class="back-btn" href="index.html">← Games</a>
+        <h1>🎨 Color Match!</h1>
+        <div class="score-area">
+            <div class="score-pill">
+                <span class="num" id="scoreNum">0</span>
+                <span class="lbl">⭐</span>
+            </div>
+            <div class="streak-badge" id="streakBadge">🔥 streak</div>
+        </div>
+    </div>
+
+    <div class="shape-area">
+        <div class="shape-card" id="shapeCard">
+            <div id="shapeDisplay"></div>
+        </div>
+        <div class="prompt" id="prompt">Which color matches? 👇</div>
+        <div class="feedback" id="feedback"></div>
+    </div>
+
+    <div class="color-grid" id="colorGrid"></div>
+</div>
+
+<script>
+/* ── Color and shape data ── */
+const COLORS = [
+    { name:'Red',    hex:'#ef4444' },
+    { name:'Orange', hex:'#f97316' },
+    { name:'Yellow', hex:'#eab308' },
+    { name:'Green',  hex:'#22c55e' },
+    { name:'Blue',   hex:'#3b82f6' },
+    { name:'Purple', hex:'#a855f7' },
+    { name:'Pink',   hex:'#ec4899' },
+    { name:'Teal',   hex:'#14b8a6' },
+];
+
+const SVG_PATHS = {
+    circle:   '<circle cx="50" cy="50" r="44"/>',
+    square:   '<rect x="6" y="6" width="88" height="88" rx="14"/>',
+    triangle: '<polygon points="50,5 95,93 5,93"/>',
+    star:     '<polygon points="50,4 61,35 95,35 68,57 79,91 50,71 21,91 32,57 5,35 39,35"/>',
+    heart:    '<path d="M50 78 C18 58 6 44 6 30 Q6 8 28 8 Q40 8 50 20 Q60 8 72 8 Q94 8 94 30 C94 44 82 58 50 78Z"/>',
+    diamond:  '<polygon points="50,3 97,50 50,97 3,50"/>',
+};
+const SHAPE_KEYS = Object.keys(SVG_PATHS);
+
+/* ── State ── */
+let score = 0, streak = 0, wrongCount = 0;
+let target = null, busy = false;
+
+/* ── Stars ── */
+const starsEl = document.getElementById('stars');
+for (let i = 0; i < 65; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const sz = (Math.random() * 2.4 + 0.7).toFixed(1);
+    s.style.cssText =
+        'width:' + sz + 'px;height:' + sz + 'px;' +
+        'left:' + (Math.random()*100).toFixed(1) + '%;' +
+        'top:'  + (Math.random()*100).toFixed(1) + '%;' +
+        '--d:'  + (Math.random()*3+2).toFixed(1) + 's;' +
+        '--delay:-' + (Math.random()*5).toFixed(1) + 's';
+    starsEl.appendChild(s);
+}
+
+/* ── Confetti ── */
+function launchConfetti(n) {
+    const wrap = document.getElementById('confetti');
+    wrap.innerHTML = '';
+    const cols = ['#ffd700','#ff6bbd','#a855f7','#38bdf8','#34d399','#fb923c','#f43f5e'];
+    for (let i = 0; i < n; i++) {
+        const p = document.createElement('div');
+        p.className = 'cp';
+        const w = Math.random()*10+5, h = Math.random()*10+5;
+        p.style.cssText =
+            'left:'  + (Math.random()*100).toFixed(1) + '%;' +
+            'width:' + w.toFixed(1) + 'px;height:' + h.toFixed(1) + 'px;' +
+            'background:' + cols[i % cols.length] + ';' +
+            'border-radius:' + (Math.random() > 0.5 ? '50%' : '2px') + ';' +
+            '--fd:' + (Math.random()*2+1.4).toFixed(2) + 's;' +
+            '--del:' + (Math.random()*0.5).toFixed(2) + 's';
+        wrap.appendChild(p);
+    }
+}
+
+/* ── Round ── */
+function newRound() {
+    busy = false;
+    wrongCount = 0;
+
+    // Pick a different color than last round
+    const prev = target;
+    do { target = COLORS[Math.floor(Math.random() * COLORS.length)]; }
+    while (target === prev);
+
+    // Random shape
+    const shapeKey = SHAPE_KEYS[Math.floor(Math.random() * SHAPE_KEYS.length)];
+    const sz = Math.min(190, Math.floor(window.innerWidth * 0.48));
+
+    document.getElementById('shapeDisplay').innerHTML =
+        `<svg width="${sz}" height="${sz}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <filter id="dropshadow">
+                    <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="rgba(0,0,0,0.5)"/>
+                </filter>
+            </defs>
+            <g fill="${target.hex}" filter="url(#dropshadow)">${SVG_PATHS[shapeKey]}</g>
+        </svg>`;
+
+    // Pop the shape card
+    const card = document.getElementById('shapeCard');
+    card.classList.remove('pop');
+    void card.offsetWidth;
+    card.classList.add('pop');
+
+    // Hide feedback
+    const fb = document.getElementById('feedback');
+    fb.classList.remove('show');
+
+    // Build 4 color options: 1 correct + 3 wrong
+    const wrong = COLORS.filter(c => c !== target).sort(() => Math.random() - 0.5).slice(0, 3);
+    const options = [...wrong, target].sort(() => Math.random() - 0.5);
+
+    // Render buttons
+    const grid = document.getElementById('colorGrid');
+    grid.innerHTML = '';
+    options.forEach(color => {
+        const btn = document.createElement('div');
+        btn.className = 'color-btn';
+        btn.style.background = color.hex;
+        if (color === target) btn.dataset.correct = '1';
+        btn.addEventListener('click', () => onAnswer(color, btn));
+        grid.appendChild(btn);
+    });
+}
+
+/* ── Answer handler ── */
+function onAnswer(color, btn) {
+    if (busy) return;
+
+    if (color === target) {
+        busy = true;
+        score++;
+        streak++;
+        updateHUD();
+
+        // Flash correct button
+        btn.classList.add('correct-flash');
+
+        // Pop shape
+        const card = document.getElementById('shapeCard');
+        card.classList.remove('pop');
+        void card.offsetWidth;
+        card.classList.add('pop');
+
+        // Show feedback with color name
+        const fb = document.getElementById('feedback');
+        fb.textContent = `✨ ${target.name}! ✨`;
+        fb.style.color = target.hex;
+        fb.style.textShadow = `0 0 24px ${target.hex}88`;
+        fb.classList.add('show');
+
+        // Confetti (more for streaks)
+        launchConfetti(streak >= 5 ? 120 : streak >= 3 ? 65 : 30);
+
+        setTimeout(newRound, 1100);
+    } else {
+        // Wrong answer
+        streak = 0;
+        wrongCount++;
+        updateHUD();
+
+        btn.classList.remove('shake');
+        void btn.offsetWidth;
+        btn.classList.add('shake');
+        btn.addEventListener('animationend', () => btn.classList.remove('shake'), { once: true });
+
+        // Hint after 2 wrong tries
+        if (wrongCount >= 2) {
+            const correctBtn = document.querySelector('[data-correct="1"]');
+            if (correctBtn) {
+                correctBtn.classList.remove('hint-pulse');
+                void correctBtn.offsetWidth;
+                correctBtn.classList.add('hint-pulse');
+                correctBtn.addEventListener('animationend',
+                    () => correctBtn.classList.remove('hint-pulse'), { once: true });
+            }
+        }
+    }
+}
+
+function updateHUD() {
+    document.getElementById('scoreNum').textContent = score;
+    const badge = document.getElementById('streakBadge');
+    if (streak >= 2) {
+        badge.textContent = `🔥 ${streak} in a row!`;
+        badge.style.display = 'block';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+/* ── Boot ── */
+newRound();
+</script>
+</body>
+</html>
