@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Plinko!</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+        html, body { height:100%; height:100dvh; overflow:hidden;
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+        body { display:flex; flex-direction:column; background:#080015; }
+
+        .top-bar {
+            flex-shrink:0; display:flex; align-items:center; gap:8px;
+            padding:11px 14px 9px;
+            background:linear-gradient(135deg,#1a0040,#2d0060);
+            border-bottom:2px solid rgba(255,255,255,0.10);
+        }
+        .back-btn {
+            background:rgba(255,255,255,0.12); border:1.5px solid rgba(255,255,255,0.2);
+            color:#fff; border-radius:50px; padding:8px 13px; font-size:0.8rem;
+            font-weight:700; text-decoration:none; white-space:nowrap; flex-shrink:0;
+        }
+        .back-btn:active { background:rgba(255,255,255,0.25); }
+        h1 { flex:1; text-align:center; font-size:1.25rem; font-weight:900; color:#fff;
+             text-shadow:0 0 20px rgba(255,200,80,0.9); }
+        #pts { flex-shrink:0; font-size:0.95rem; font-weight:900; color:#ffd700;
+               text-shadow:0 0 10px rgba(255,215,0,0.7); min-width:62px; text-align:right; }
+
+        canvas { flex:1; display:block; width:100%; touch-action:none; cursor:crosshair; }
+
+        #celebrate {
+            position:fixed; inset:0; z-index:60; pointer-events:none;
+            display:flex; align-items:center; justify-content:center;
+        }
+        #celebWord {
+            font-size:min(22vw,100px); font-weight:900;
+            font-family:Impact,'Arial Black',sans-serif;
+            transform:scale(0) rotate(-8deg);
+            transition:transform 0.5s cubic-bezier(0.34,1.9,0.64,1);
+            text-shadow:5px 5px 0 rgba(0,0,0,0.45);
+            text-align:center; line-height:1;
+        }
+        #celebWord.show { transform:scale(1) rotate(0deg); }
+
+        .cw { position:fixed; inset:0; pointer-events:none; z-index:50; overflow:hidden; }
+        .cp { position:absolute; top:-16px; animation:fall var(--fd) ease-in var(--del) forwards; }
+        @keyframes fall {
+            0%  {transform:translateY(0) rotate(0); opacity:1}
+            100%{transform:translateY(115vh) rotate(800deg); opacity:0}
+        }
+    </style>
+</head>
+<body>
+
+<div class="top-bar">
+    <a class="back-btn" href="index.html">&#8592; Games</a>
+    <h1>&#127922; Plinko!</h1>
+    <div id="pts">0 pts</div>
+</div>
+
+<canvas id="canvas"></canvas>
+<div id="celebrate"><div id="celebWord"></div></div>
+<div class="cw" id="confetti"></div>
+
+<script>
+/* ═══════════════════════════════════════════
+   ALL let/const DECLARATIONS BEFORE ANY CALL
+═══════════════════════════════════════════ */
+
+const canvas   = document.getElementById('canvas');
+const ctx      = canvas.getContext('2d');
+const celebEl  = document.getElementById('celebWord');
+const ptsEl    = document.getElementById('pts');
+
+/* ── Physics constants ── */
+const GRAVITY   = 0.46;
+const WALL_DAMP = 0.50;
+const PEG_DAMP  = 0.78;
+const MIN_VY    = 1.8;    /* min downward speed after any bounce */
+const NUDGE     = 2.4;    /* random horizontal nudge per peg hit  */
+
+/* ── Board layout (set in buildBoard) ── */
+let W = 0, H = 0, dpr = 1;
+let BL = 0, BR = 0;       /* board left / right */
+let PEG_R = 0, MAR_R = 0; /* radii, scaled to screen */
+
+/* ── Row hues for rainbow pegs ── */
+const ROW_HUES = [0, 28, 55, 100, 175, 220, 268, 315];
+
+/* ── Cup definitions ── */
+const CUP_META = [
+    { label:'STAR',    pts:100, hue:50  },
+    { label:'JACKPOT', pts:500, hue:320 },
+    { label:'BONUS',   pts:200, hue:195 },
+];
+
+/* ── Marble colors ── */
+const MAR_COLS = ['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#a855f7','#ec4899','#14b8a6'];
+
+/* ── Game objects ── */
+let pegs      = [];
+let cups      = [];
+let particles = [];
+let stars     = [];
+
+/* ── Marble ── */
+let mx = 0, my = 0, mvx = 0, mvy = 0;
+let marbleOn   = false;
+let marbleCol  = MAR_COLS[0];
+let marbleHue  = 0;    /* hsl hue of current marble */
+let marColIdx  = 0;
+let lastPeg    = null; /* last hit peg, to skip re-detection */
+
+/* ── State ── */
+let phase     = 'IDLE';   /* IDLE | DROP | LAND */
+let totalPts  = 0;
+let frame     = 0;
+
+/* ═══════════════════════════
+   AUDIO
+═══════════════════════════ */
+let _ac = null;
+function ac() { return _ac || (_ac = new (window.AudioContext || window.webkitAudioContext)()); }
+
+function clink(speed) {
+    try {
+        const a = ac();
+        const o = a.createOscillator(), g = a.createGain();
+        o.type = 'triangle';
+        o.frequency.value = Math.min(2800, 650 + speed * 50 + Math.random() * 600);
+        o.connect(g); g.connect(a.destination);
+        const vol = Math.min(0.3, 0.05 + speed * 0.016);
+        g.gain.setValueAtTime(vol, a.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + 0.075);
+        o.start(); o.stop(a.currentTime + 0.075);
+        /* subtle harmonic overtone */
+        const o2 = a.createOscillator(), g2 = a.createGain();
+        o2.type = 'sine'; o2.frequency.value = o.frequency.value * 2.01;
+        o2.connect(g2); g2.connect(a.destination);
+        g2.gain.setValueAtTime(vol * 0.3, a.currentTime);
+        g2.gain.exponentialRampToValueAtTime(0.001, a.currentTime + 0.04);
+        o2.start(); o2.stop(a.currentTime + 0.04);
+    } catch(e){}
+}
+
+function landSound(cupIdx) {
+    try {
+        const a = ac();
+        /* Thud */
+        const ot = a.createOscillator(), gt = a.createGain();
+        ot.type = 'sine';
+        ot.frequency.setValueAtTime(200, a.currentTime);
+        ot.frequency.exponentialRampToValueAtTime(50, a.currentTime + 0.3);
+        ot.connect(gt); gt.connect(a.destination);
+        gt.gain.setValueAtTime(0.6, a.currentTime);
+        gt.gain.exponentialRampToValueAtTime(0.001, a.currentTime + 0.35);
+        ot.start(); ot.stop(a.currentTime + 0.35);
+        /* Chord */
+        const chords = cupIdx === 1
+            ? [523, 659, 784, 1047, 1319]
+            : (cupIdx === 2 ? [440, 554, 659, 880] : [392, 494, 587]);
+        chords.forEach((f, i) => {
+            const o = a.createOscillator(), g = a.createGain();
+            o.type = 'sine'; o.frequency.value = f;
+            o.connect(g); g.connect(a.destination);
+            const t0 = a.currentTime + i * 0.065;
+            g.gain.setValueAtTime(0.2, t0);
+            g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.6);
+            o.start(t0); o.stop(t0 + 0.6);
+        });
+    } catch(e){}
+}
+
+/* ═══════════════════════════
+   DRAW HELPERS
+═══════════════════════════ */
+
+function hsl(h, s, l) { return `hsl(${h},${s}%,${l}%)`; }
+
+function drawBg() {
+    /* Sky gradient */
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0,   '#080015');
+    g.addColorStop(0.5, '#0b1545');
+    g.addColorStop(1,   '#120028');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    /* Faint lane tints leading into each cup */
+    for (const cup of cups) {
+        const lg = ctx.createLinearGradient(0, H * 0.1, 0, cup.y);
+        lg.addColorStop(0, 'rgba(0,0,0,0)');
+        lg.addColorStop(1, `hsla(${cup.hue},80%,50%,0.10)`);
+        ctx.fillStyle = lg;
+        ctx.fillRect(cup.x - cup.w / 2, H * 0.1, cup.w, cup.y - H * 0.1);
+    }
+}
+
+function drawStarField() {
+    const now = Date.now() / 1000;
+    for (const s of stars) {
+        const a = 0.2 + 0.7 * (0.5 + 0.5 * Math.sin(now / s.p + s.o));
+        ctx.globalAlpha = a;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(s.x * W, s.y * H * 0.78, s.r, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+}
+
+function drawRails() {
+    const top = H * 0.12;
+    const bot = cups[0] ? cups[0].y : H * 0.82;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(180,140,255,0.22)';
+    ctx.lineWidth = 2;
+    /* left rail */
+    ctx.beginPath(); ctx.moveTo(BL, top); ctx.lineTo(BL, bot); ctx.stroke();
+    /* right rail */
+    ctx.beginPath(); ctx.moveTo(BR, top); ctx.lineTo(BR, bot); ctx.stroke();
+    /* separator lines between cup lanes */
+    if (cups.length > 1) {
+        for (let i = 1; i < cups.length; i++) {
+            const x = cups[i].x - cups[i].w / 2;
+            ctx.strokeStyle = 'rgba(180,140,255,0.15)';
+            ctx.setLineDash([4, 6]);
+            ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bot); ctx.stroke();
+        }
+        ctx.setLineDash([]);
+    }
+    ctx.restore();
+}
+
+function drawPeg(p) {
+    const age = p.litAt ? Date.now() - p.litAt : Infinity;
+    const lit  = age < 420;
+    const glow = lit ? Math.max(0, 1 - age / 420) : 0;
+    const r    = p.r;
+
+    ctx.save();
+    ctx.shadowBlur  = 8 + glow * 30;
+    ctx.shadowColor = lit ? '#ffffff' : hsl(p.hue, 80, 70);
+
+    const grad = ctx.createRadialGradient(p.x - r * 0.3, p.y - r * 0.38, r * 0.05, p.x, p.y, r);
+    grad.addColorStop(0,   '#ffffff');
+    grad.addColorStop(0.3, lit ? '#fff' : hsl(p.hue, 90, 75));
+    grad.addColorStop(0.7, hsl(p.hue, 90, lit ? 80 : 55));
+    grad.addColorStop(1,   hsl(p.hue, 90, lit ? 50 : 25));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
+function drawCup(cup) {
+    const age    = cup.landAt ? Date.now() - cup.landAt : Infinity;
+    const active = age < 2300;
+    /* damped bounce: amplitude decays, oscillates at ~14 Hz */
+    const bounce = active ? Math.sin(age * 0.088) * Math.exp(-age * 0.0028) * 14 : 0;
+
+    const lx  = cup.x - (cup.w - 8) / 2;
+    const rx  = cup.x + (cup.w - 8) / 2;
+    const top = cup.y + bounce;
+    const bot = cup.y + cup.h;
+    const rad = 12;
+
+    ctx.save();
+    ctx.shadowBlur  = active ? 45 : 14;
+    ctx.shadowColor = hsl(cup.hue, 85, 65);
+
+    /* Fill */
+    ctx.fillStyle = active
+        ? `hsla(${cup.hue},85%,55%,0.21)`
+        : `hsla(${cup.hue},70%,40%,0.09)`;
+    ctx.beginPath();
+    ctx.moveTo(lx, top);
+    ctx.lineTo(lx, bot - rad);
+    ctx.arcTo(lx, bot, lx + rad, bot, rad);
+    ctx.lineTo(rx - rad, bot);
+    ctx.arcTo(rx, bot, rx, bot - rad, rad);
+    ctx.lineTo(rx, top);
+    ctx.closePath();
+    ctx.fill();
+
+    /* Stroke */
+    ctx.strokeStyle = hsl(cup.hue, 90, active ? 80 : 65);
+    ctx.lineWidth   = active ? 3.5 : 2.5;
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+
+    /* Label */
+    const fs = Math.max(11, Math.round((rx - lx) * 0.17));
+    ctx.fillStyle    = active ? '#fff' : hsl(cup.hue, 90, 80);
+    ctx.font         = `900 ${fs}px -apple-system,sans-serif`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(cup.label, cup.x, cup.y + bounce + cup.h * 0.33);
+
+    ctx.fillStyle = active ? 'rgba(255,255,255,0.95)' : `hsla(${cup.hue},80%,65%,0.80)`;
+    ctx.font      = `bold ${Math.round(fs * 0.72)}px -apple-system,sans-serif`;
+    ctx.fillText(cup.pts + ' pts', cup.x, cup.y + bounce + cup.h * 0.58);
+
+    if (cup.wins > 0) {
+        ctx.fillStyle = active ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.35)';
+        ctx.font = `bold ${Math.round(fs * 0.62)}px -apple-system,sans-serif`;
+        ctx.fillText('x' + cup.wins, cup.x, cup.y + bounce + cup.h * 0.80);
+    }
+    ctx.restore();
+}
+
+function drawMarble() {
+    if (!marbleOn) return;
+    const r = MAR_R;
+    ctx.save();
+    ctx.shadowBlur  = 32;
+    ctx.shadowColor = marbleCol;
+
+    /* Sphere with radial shine */
+    const g = ctx.createRadialGradient(mx - r*0.36, my - r*0.42, r*0.04, mx, my, r);
+    g.addColorStop(0,    '#ffffff');
+    g.addColorStop(0.18, hsl(marbleHue, 90, 88));
+    g.addColorStop(0.55, hsl(marbleHue, 95, 55));
+    g.addColorStop(1,    hsl(marbleHue, 95, 22));
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(mx, my, r, 0, Math.PI * 2); ctx.fill();
+
+    /* Specular shine dot */
+    ctx.shadowBlur = 0;
+    const sg = ctx.createRadialGradient(mx - r*0.28, my - r*0.34, 0, mx - r*0.16, my - r*0.22, r*0.5);
+    sg.addColorStop(0, 'rgba(255,255,255,0.95)');
+    sg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = sg;
+    ctx.beginPath(); ctx.arc(mx, my, r, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+}
+
+function drawParticles() {
+    for (const p of particles) {
+        ctx.globalAlpha = p.a * p.life;
+        if (p.trail) {
+            /* motion trail: soft blur glow */
+            ctx.shadowBlur  = 6;
+            ctx.shadowColor = p.col;
+            ctx.fillStyle   = p.col;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+        } else {
+            /* spark */
+            ctx.shadowBlur  = 4;
+            ctx.shadowColor = p.col;
+            ctx.fillStyle   = p.col;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+        }
+    }
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur  = 0;
+}
+
+function drawIdlePrompt() {
+    const pulse = 0.5 + 0.38 * Math.sin(frame * 0.06);
+    const bob   = Math.sin(frame * 0.09) * 4;
+    ctx.save();
+    ctx.globalAlpha  = pulse;
+    ctx.fillStyle    = 'rgba(255,255,255,0.82)';
+    ctx.font         = `bold ${Math.round(W * 0.044)}px -apple-system,sans-serif`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Tap anywhere to drop!', W / 2, H * 0.07);
+
+    ctx.fillStyle   = '#ffd700';
+    ctx.shadowBlur  = 14;
+    ctx.shadowColor = '#ffd700';
+    ctx.font        = `bold ${Math.round(W * 0.06)}px sans-serif`;
+    ctx.fillText('v', W / 2, H * 0.115 + bob);
+    ctx.restore();
+}
+
+/* ═══════════════════════════
+   PHYSICS UPDATE
+═══════════════════════════ */
+function updatePhysics() {
+    if (!marbleOn || phase !== 'DROP') return;
+
+    /* gravity */
+    mvy += GRAVITY;
+    mx  += mvx;
+    my  += mvy;
+
+    /* wall bounce */
+    if (mx - MAR_R < BL) {
+        mx  = BL + MAR_R + 1;
+        mvx = Math.abs(mvx) * WALL_DAMP;
+        mvx += Math.random() * 0.5;
+    }
+    if (mx + MAR_R > BR) {
+        mx  = BR - MAR_R - 1;
+        mvx = -(Math.abs(mvx) * WALL_DAMP + Math.random() * 0.5);
+    }
+
+    /* peg collisions */
+    for (const p of pegs) {
+        const dx   = mx - p.x;
+        const dy   = my - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const minD = MAR_R + p.r;
+
+        if (dist < minD && dist > 0.5 && p !== lastPeg) {
+            const nx  = dx / dist, ny = dy / dist;
+            const dot = mvx * nx + mvy * ny;
+
+            if (dot < 0) {
+                mvx -= 2 * dot * nx;
+                mvy -= 2 * dot * ny;
+
+                /* random nudge makes each drop unique */
+                mvx += (Math.random() - 0.5) * NUDGE;
+
+                /* energy loss */
+                const spd = Math.sqrt(mvx * mvx + mvy * mvy);
+                if (spd > 0.01) { const s = spd * PEG_DAMP; mvx = mvx / spd * s; mvy = mvy / spd * s; }
+
+                /* always keep falling */
+                if (mvy < MIN_VY) mvy = MIN_VY;
+
+                /* push marble out of peg */
+                mx = p.x + nx * (minD + 1.5);
+                my = p.y + ny * (minD + 1.5);
+
+                p.litAt  = Date.now();
+                lastPeg  = p;
+
+                /* sparks */
+                const spd2 = Math.sqrt(mvx * mvx + mvy * mvy);
+                for (let i = 0; i < 7; i++) {
+                    particles.push({
+                        x: mx, y: my,
+                        vx:(Math.random()-0.5)*6, vy:(Math.random()-0.5)*6-1.5,
+                        r: Math.random()*2.6+0.8, life:1, a:1,
+                        col: marbleCol, trail: false,
+                    });
+                }
+
+                clink(spd2);
+            }
+        }
+    }
+
+    /* clear lastPeg guard once ball moves away */
+    if (lastPeg) {
+        const dx = mx - lastPeg.x, dy = my - lastPeg.y;
+        if (dx*dx + dy*dy > (MAR_R + lastPeg.r + 12) ** 2) lastPeg = null;
+    }
+
+    /* motion trail */
+    particles.push({
+        x: mx, y: my, vx: 0, vy: 0,
+        r: MAR_R * 0.55, life: 0.5, a: 0.35,
+        col: marbleCol, trail: true,
+    });
+
+    /* tick particles */
+    particles = particles.filter(p => p.life > 0.015);
+    for (const p of particles) {
+        if (!p.trail) {
+            p.x  += p.vx; p.y += p.vy;
+            p.vy += 0.2;
+            p.vx *= 0.94;
+            p.r  *= 0.95;
+        }
+        p.life -= p.trail ? 0.06 : 0.028;
+    }
+
+    /* cup landing */
+    if (cups.length && my + MAR_R > cups[0].y + 6) {
+        let ci = 0;
+        for (let i = 1; i < cups.length; i++) {
+            if (mx > cups[i].x - cups[i].w / 2) ci = i;
+        }
+        land(ci);
+    }
+}
+
+function land(ci) {
+    phase       = 'LAND';
+    marbleOn    = false;
+    particles   = [];
+    const cup   = cups[ci];
+    cup.wins++;
+    cup.landAt  = Date.now();
+    totalPts   += cup.pts;
+    ptsEl.textContent = totalPts + ' pts';
+
+    landSound(ci);
+
+    const isJP = ci === 1;
+    celebEl.textContent = isJP ? 'JACKPOT!!' : cup.label + '!';
+    celebEl.style.color = hsl(cup.hue, 90, 75);
+    celebEl.style.textShadow =
+        `0 0 60px ${hsl(cup.hue,90,65)}, 5px 5px 0 rgba(0,0,0,0.45)`;
+    celebEl.classList.add('show');
+    confetti(isJP ? 110 : 48, cup.hue);
+
+    setTimeout(() => {
+        celebEl.classList.remove('show');
+        phase = 'IDLE';
+    }, 2200);
+}
+
+function confetti(n, baseHue) {
+    const wrap = document.getElementById('confetti');
+    wrap.innerHTML = '';
+    const hues = [baseHue, baseHue+60, baseHue+120, baseHue+180, baseHue+240, baseHue+300];
+    for (let i = 0; i < n; i++) {
+        const el = document.createElement('div');
+        el.className = 'cp';
+        const cw = (4 + Math.random()*10).toFixed(1);
+        const ch = (4 + Math.random()*8).toFixed(1);
+        el.style.cssText =
+            `left:${(Math.random()*100).toFixed(1)}%;` +
+            `width:${cw}px;height:${ch}px;` +
+            `background:hsl(${hues[i%hues.length]},90%,65%);` +
+            `border-radius:${Math.random()>.5?'50%':'3px'};` +
+            `--fd:${(1.5+Math.random()*2.5).toFixed(2)}s;` +
+            `--del:${(Math.random()*0.6).toFixed(2)}s`;
+        wrap.appendChild(el);
+    }
+}
+
+/* ═══════════════════════════
+   MAIN LOOP
+═══════════════════════════ */
+function loop() {
+    frame++;
+    updatePhysics();
+    ctx.clearRect(0, 0, W, H);
+    drawBg();
+    drawStarField();
+    drawRails();
+    for (const p of pegs) drawPeg(p);
+    for (const c of cups) drawCup(c);
+    drawParticles();
+    drawMarble();
+    if (phase === 'IDLE') drawIdlePrompt();
+    requestAnimationFrame(loop);
+}
+
+/* ═══════════════════════════
+   DROP
+═══════════════════════════ */
+function drop(clientX) {
+    if (phase !== 'IDLE') return;
+    phase = 'DROP';
+
+    const col = MAR_COLS[marColIdx % MAR_COLS.length];
+    marbleCol  = col;
+    /* parse hue from hex for hsl drawing */
+    const hexHues = [0, 24, 50, 140, 217, 271, 326, 180];
+    marbleHue  = hexHues[marColIdx % hexHues.length];
+    marColIdx++;
+
+    marbleOn = true;
+    lastPeg  = null;
+    particles = [];
+
+    const rect = canvas.getBoundingClientRect();
+    const tx   = clientX - rect.left;
+    mx  = Math.max(BL + MAR_R + 2, Math.min(BR - MAR_R - 2, tx));
+    my  = H * 0.065;
+    mvx = (Math.random() - 0.5) * 1.2;
+    mvy = 0;
+}
+
+/* ═══════════════════════════
+   RESIZE / BUILD BOARD
+═══════════════════════════ */
+function buildBoard() {
+    PEG_R = Math.max(6,  Math.min(10, Math.round(W * 0.022)));
+    MAR_R = Math.max(13, Math.min(20, Math.round(W * 0.042)));
+
+    BL = W * 0.07;
+    BR = W * 0.93;
+    const bw = BR - BL;
+
+    const ROWS      = 8;
+    const COLS_EVEN = 5;
+    const colGap    = bw / (COLS_EVEN - 1);
+    const topY      = H * 0.15;
+    const botY      = H * 0.76;
+    const rowGap    = (botY - topY) / (ROWS - 1);
+
+    pegs = [];
+    for (let r = 0; r < ROWS; r++) {
+        const y      = topY + r * rowGap;
+        const even   = r % 2 === 0;
+        const cols   = even ? COLS_EVEN : COLS_EVEN - 1;
+        const xOff   = even ? 0 : colGap / 2;
+        const hue    = ROW_HUES[r % ROW_HUES.length];
+        for (let c = 0; c < cols; c++) {
+            pegs.push({ x: BL + xOff + c * colGap, y, r: PEG_R, hue, litAt: 0 });
+        }
+    }
+
+    const cupTop = H * 0.815;
+    const cupH   = Math.min(H * 0.16, 120);
+    const cupW   = bw / 3;
+    cups = CUP_META.map((m, i) => ({
+        ...m,
+        x: BL + cupW * (i + 0.5), y: cupTop,
+        w: cupW, h: cupH,
+        landAt: 0, wins: cups[i]?.wins ?? 0,
+    }));
+
+    stars = Array.from({ length: 55 }, () => ({
+        x: Math.random(), y: Math.random(),
+        r: Math.random() * 1.6 + 0.3,
+        p: Math.random() * 4 + 1.5,
+        o: Math.random() * Math.PI * 2,
+    }));
+}
+
+function resize() {
+    dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    W = rect.width;
+    H = rect.height;
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    buildBoard();
+}
+
+/* ═══════════════════════════
+   EVENTS
+═══════════════════════════ */
+canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    drop(e.touches[0].clientX);
+}, { passive: false });
+
+canvas.addEventListener('click', e => drop(e.clientX));
+
+window.addEventListener('resize', resize);
+
+/* ═══════════════════════════
+   BOOT  (all vars declared above)
+═══════════════════════════ */
+resize();
+loop();
+</script>
+</body>
+</html>
