@@ -468,7 +468,7 @@ function shoot(tx, ty) {
     // Determine outcome (forgiving: ~75% goal rate)
     const distFromGoalie = Math.abs(btx - gx);
     const cornerPct      = Math.min(1, distFromGoalie / (GW * 0.38));
-    const savePct        = 0.25 - cornerPct * 0.18; // 7–25% save rate
+    const savePct        = 0.70 - cornerPct * 0.40; // 30–70% save rate (avg ~50% goal)
     outcome = Math.random() < savePct ? 'save' : 'goal';
 
     // Goalie dive direction
