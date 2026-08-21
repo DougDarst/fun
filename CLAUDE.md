@@ -1,0 +1,51 @@
+# Ellie's Games
+
+A collection of touch-friendly browser games for Ellie and Grandpa.
+
+## Adding a new game
+
+Each game must be self-contained in a single `.html` file — all CSS and JavaScript inline, no external files.
+
+1. Create a new `.html` file for the game (e.g. `mygame.html`). All styles and scripts go inside that file.
+2. Follow the UI patterns from `matching.html` (see below).
+3. Add the game to `index.html` — copy an existing `<a class="game-card">` block, update the `href`, colors (`--c1`/`--c2`), icon, name, and description.
+
+## UI patterns (from matching.html)
+
+- **Background:** dark purple animated gradient (`bgShift` keyframe), with a twinkling star field (`#stars` div, 70 stars).
+- **Layout:** centered `.game` column, `max-width: 420px`, `gap: 12px`, `z-index: 1` above stars.
+- **Top bar:** `.top-bar` flex row with a `← Games` back link (`.back-btn`) linking to `index.html`, a centered `<h1>`, and a `.top-spacer` to balance it.
+- **Stat/score cards:** `.player-card` or `.stat-card` — `rgba(255,255,255,0.08)` background, `backdrop-filter: blur(12px)`, `border-radius: 20px`, gold (`#ffd700`) value text.
+- **Status bar:** full-width pill (`border-radius: 50px`) with `rgba(255,255,255,0.1)` background for turn/level indicators.
+- **Buttons:** 
+  - Secondary: `rgba(255,255,255,0.12)` background, white border, `border-radius: 50px` (`.new-game-btn` style).
+  - Primary / play-again: gold-to-orange gradient, dark text, `border-radius: 50px` (`.play-again-btn` style).
+- **Game over overlay:** `.overlay` fixed full-screen blur (`rgba(5,0,20,0.80)`), containing a `.result-card` with gradient dark background, gold border, result emoji, title, scores, message, and a Play Again button. Show by adding `.show` class.
+- **Confetti:** `.confetti-wrap` fixed layer, colorful `.cp` divs animated with `fall` keyframe — launch on a win.
+- **Fonts:** `-apple-system, BlinkMacSystemFont, 'Segoe UI', Rounded, sans-serif`; white text throughout.
+- **Touch:** `user-scalable=no` viewport, `-webkit-tap-highlight-color: transparent`, `touch-action: none` on interactive elements.
+
+## File structure
+
+```
+index.html          — game picker / home screen
+matching.html       — Emoji Match (2-player memory game)
+tictactoe_v2.html   — Tic-Tac-Toe (Unicorn vs Dragon)
+simon.html          — Simon Says
+music.html          — Music Bars
+balloons.html       — Pop Balloons
+dots.html           — Dot Art (connect the dots)
+letters.html        — First Letter (emoji alphabet game)
+puzzle.html         — Unicorn Puzzle (3×3 sliding tile puzzle)
+addition.html       — Add It Up! (addition, sums up to 10)
+pong.html           — Pong! (2-player, top/bottom paddles, landscape recommended)
+mole.html           — Whack-a-Mole (tap moles before they hide, 60-second timer)
+fishing.html        — Fishing! (drag hook to catch fish, 60-second timer, 8 fish types)
+shapes.html         — Shape Sorter (drag shapes to matching outlines, snaps on drop, for toddlers)
+emojifun.html       — Emoji Fun (drag finger to spawn animal emoji trails, for toddlers)
+stickers.html       — Sticker Scene (drag emoji stickers onto beach/space/meadow/forest scenes)
+colormatch.html     — Color Match! (tap the circle matching a colored shape, 8 colors, 6 shapes)
+paint.html          — Paint! (finger painting canvas, 18 colors, 3 brush sizes, rainbow brush, undo)
+soccer.html         — Tap to Shoot! (tap to kick at goal, goalie dives, GOAL! celebration + confetti)
+CLAUDE.md           — this file
+```
