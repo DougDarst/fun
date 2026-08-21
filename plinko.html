@@ -74,11 +74,13 @@ const celebEl  = document.getElementById('celebWord');
 const ptsEl    = document.getElementById('pts');
 
 /* ── Physics constants ── */
-const GRAVITY   = 0.46;
-const WALL_DAMP = 0.50;
-const PEG_DAMP  = 0.78;
-const MIN_VY    = 1.8;    /* min downward speed after any bounce */
-const NUDGE     = 2.4;    /* random horizontal nudge per peg hit  */
+const GRAVITY   = 0.13;   /* low gravity — drag provides terminal velocity */
+const DRAG      = 0.980;  /* air resistance applied every frame */
+const MAX_VY    = 6.5;    /* terminal velocity cap */
+const WALL_DAMP = 0.55;
+const PEG_DAMP  = 0.86;   /* higher retention = more lively bouncing */
+const MIN_VY    = 0.3;    /* low so ball can bounce sideways freely */
+const NUDGE     = 4.5;    /* large random deflection per peg hit */
 
 /* ── Board layout (set in buildBoard) ── */
 let W = 0, H = 0, dpr = 1;
@@ -342,10 +344,9 @@ function drawParticles() {
     for (const p of particles) {
         ctx.globalAlpha = p.a * p.life;
         if (p.trail) {
-            /* motion trail: soft blur glow */
-            ctx.shadowBlur  = 6;
-            ctx.shadowColor = p.col;
-            ctx.fillStyle   = p.col;
+            /* no shadow — prevents trail dots from looking like a second marble */
+            ctx.shadowBlur = 0;
+            ctx.fillStyle  = p.col;
             ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
         } else {
             /* spark */
@@ -384,8 +385,11 @@ function drawIdlePrompt() {
 function updatePhysics() {
     if (!marbleOn || phase !== 'DROP') return;
 
-    /* gravity */
+    /* drag + gravity (drag caps terminal velocity, gravity stays gentle) */
+    mvx *= DRAG;
+    mvy *= DRAG;
     mvy += GRAVITY;
+    if (mvy > MAX_VY) mvy = MAX_VY;
     mx  += mvx;
     my  += mvy;
 
@@ -454,12 +458,14 @@ function updatePhysics() {
         if (dx*dx + dy*dy > (MAR_R + lastPeg.r + 12) ** 2) lastPeg = null;
     }
 
-    /* motion trail */
-    particles.push({
-        x: mx, y: my, vx: 0, vy: 0,
-        r: MAR_R * 0.55, life: 0.5, a: 0.35,
-        col: marbleCol, trail: true,
-    });
+    /* motion trail — tiny dots so it reads as streak, not second ball */
+    if (frame % 2 === 0) {
+        particles.push({
+            x: mx, y: my, vx: 0, vy: 0,
+            r: MAR_R * 0.22, life: 0.28, a: 0.22,
+            col: marbleCol, trail: true,
+        });
+    }
 
     /* tick particles */
     particles = particles.filter(p => p.life > 0.015);
@@ -470,7 +476,7 @@ function updatePhysics() {
             p.vx *= 0.94;
             p.r  *= 0.95;
         }
-        p.life -= p.trail ? 0.06 : 0.028;
+        p.life -= p.trail ? 0.14 : 0.028;
     }
 
     /* cup landing */
