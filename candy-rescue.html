@@ -38,7 +38,7 @@
   .top-bar {
     width: 100%;
     display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 16px 8px;
+    padding: 8px 16px 4px;
     z-index: 1; flex-shrink: 0;
   }
   .back-btn {
@@ -57,7 +57,7 @@
   .stats-row {
     width: 100%; max-width: 420px; align-self: center;
     display: flex; gap: 10px;
-    padding: 0 12px 8px;
+    padding: 0 12px 4px;
     z-index: 1; flex-shrink: 0;
   }
   .stat-card {
@@ -132,7 +132,7 @@
   /* Controls */
   .controls {
     display: flex; align-items: center; justify-content: center; gap: 14px;
-    padding: 14px 16px 20px;
+    padding: 10px 16px 14px;
     background: rgba(5,0,20,0.65);
     flex-shrink: 0;
     z-index: 1;
@@ -157,12 +157,7 @@
     cursor: pointer; touch-action: none;
   }
   .shoot-btn:active { opacity: 0.85; }
-  .hint-text {
-    font-size: 12px; opacity: 0.4; text-align: center;
-    padding-bottom: 6px; color: #fff;
-    background: rgba(5,0,20,0.65);
-    flex-shrink: 0;
-  }
+  .hint-text { display: none; }
 
   /* Overlay */
   .overlay {
@@ -258,7 +253,8 @@
   }
 
   const ANIMAL_EMOJIS = ['🐰','🐼','🦊','🐸','🐵','🐨'];
-  const ROWS = 3, COLS = 6, CELL = 68;
+  const COLS = 6;
+  let ROWS = 3, CELL = 68;
   const CANDY_COOLDOWN = 420;
   const GIRL_SPEED = 6;
 
@@ -287,10 +283,22 @@
   let formationX, formationY, formationDir = 1, formationSpeed, dropOffset = 0;
   let candies = [];
 
+  function computeCell() {
+    const playH = stageH - 66 - 50; // girlY - formationY
+    const byW = Math.floor((stageW - 16) / COLS);
+    // Try 3 rows; if cell would be too small, drop to 2
+    let rows = 3;
+    let byH = Math.floor(playH / (rows + 1));
+    if (Math.min(byH, byW) < 36) { rows = 2; byH = Math.floor(playH / (rows + 1)); }
+    ROWS = rows;
+    CELL = Math.max(28, Math.min(68, byH, byW));
+  }
+
   function layout() {
     const rect = stage.getBoundingClientRect();
     stageW = rect.width; stageH = rect.height;
     girlY = stageH - 66;
+    computeCell();
     if (girlX === undefined) girlX = stageW / 2;
     girlX = Math.min(Math.max(girlX, 30), stageW - 30);
     positionGirl();
@@ -348,6 +356,7 @@
         const emoji = ANIMAL_EMOJIS[(r + c + wave) % ANIMAL_EMOJIS.length];
         const el = document.createElement('div');
         el.className = 'animal-cell';
+        el.style.fontSize = Math.round(CELL * 0.52) + 'px';
         el.textContent = emoji;
         stage.insertBefore(el, floorZone);
         animals.push({ row: r, col: c, alive: true, el });
@@ -547,7 +556,7 @@
     requestAnimationFrame(loop);
   }
 
-  window.addEventListener('resize', layout);
+  window.addEventListener('resize', () => { layout(); if (!paused) buildWave(); });
   layout();
   buildWave();
   requestAnimationFrame(loop);
