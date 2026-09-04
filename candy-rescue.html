@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Candy Rescue</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Rounded, sans-serif;
+    color: #fff;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background: linear-gradient(135deg,#1a0040,#0a1560,#2d0060,#0a1560,#1a0040);
+    background-size: 400% 400%;
+    animation: bgShift 12s ease infinite;
+    display: flex; flex-direction: column;
+  }
+  @keyframes bgShift {
+    0%,100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  #stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .star {
+    position: absolute; width: 2px; height: 2px;
+    background: #fff; border-radius: 50%;
+    animation: twinkle 2s infinite alternate;
+  }
+  @keyframes twinkle {
+    from { opacity: 0.15; }
+    to { opacity: 0.9; }
+  }
+
+  .top-bar {
+    width: 100%;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px 8px;
+    z-index: 1; flex-shrink: 0;
+  }
+  .back-btn {
+    color: rgba(255,255,255,0.75);
+    text-decoration: none; font-size: 15px;
+    padding: 6px 14px; border-radius: 50px;
+    background: rgba(255,255,255,0.1);
+    white-space: nowrap; min-width: 80px; text-align: center;
+  }
+  .top-bar h1 {
+    font-size: clamp(16px, 4vw, 22px);
+    font-weight: 700; text-align: center; flex: 1;
+  }
+  .top-spacer { min-width: 80px; }
+
+  .stats-row {
+    width: 100%; max-width: 420px; align-self: center;
+    display: flex; gap: 10px;
+    padding: 0 12px 8px;
+    z-index: 1; flex-shrink: 0;
+  }
+  .stat-card {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; gap: 4px;
+    padding: 8px 10px; border-radius: 20px;
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(12px);
+  }
+  .stat-card .slabel { font-size: 11px; opacity: 0.6; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+  .stat-card .svalue { font-size: 20px; font-weight: 700; color: #ffd700; }
+
+  /* Stage */
+  .stage {
+    flex: 1; position: relative;
+    background: linear-gradient(180deg, #6f8fff 0%, #cfe0ff 80%);
+    overflow: hidden; min-height: 0;
+  }
+
+  .ground {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 60px;
+    background: #7fd6a3;
+    border-radius: 50% 50% 0 0 / 26px 26px 0 0;
+  }
+
+  .banner {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    font-size: 15px; font-weight: 600;
+    background: rgba(255,255,255,0.88);
+    color: #4a3f55;
+    padding: 6px 16px; border-radius: 999px;
+    opacity: 0; white-space: nowrap; z-index: 5;
+    transition: opacity 0.3s;
+  }
+
+  /* Animals */
+  .animal-cell {
+    position: absolute; font-size: 34px;
+    line-height: 1; text-align: center;
+    transition: transform 0.1s ease;
+    filter: drop-shadow(0 3px 2px rgba(0,0,0,0.15));
+  }
+  .animal-cell.pop { animation: popAway 0.35s ease forwards; }
+  @keyframes popAway {
+    0% { transform: scale(1) rotate(0deg); opacity: 1; }
+    60% { transform: scale(1.4) rotate(15deg); opacity: 1; }
+    100% { transform: scale(0.2) rotate(35deg); opacity: 0; }
+  }
+
+  /* Girl */
+  .girl {
+    position: absolute; font-size: 46px; bottom: 66px;
+    transform: translateX(-50%);
+    filter: drop-shadow(0 3px 3px rgba(0,0,0,0.2));
+    transition: transform 0.05s linear;
+  }
+  .girl.shoot-anim { animation: girlShoot 0.25s ease; }
+  @keyframes girlShoot {
+    0% { transform: translateX(-50%) scale(1); }
+    40% { transform: translateX(-50%) scale(1.12) translateY(-6px); }
+    100% { transform: translateX(-50%) scale(1); }
+  }
+
+  .candy {
+    position: absolute; font-size: 24px;
+    pointer-events: none;
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
+  }
+
+  .floor-zone { position: absolute; bottom: 0; left: 0; right: 0; height: 130px; }
+
+  /* Controls */
+  .controls {
+    display: flex; align-items: center; justify-content: center; gap: 14px;
+    padding: 14px 16px 20px;
+    background: rgba(5,0,20,0.65);
+    flex-shrink: 0;
+    z-index: 1;
+  }
+  .move-btn {
+    width: 64px; height: 64px;
+    font-size: 24px; font-weight: 700;
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    border: 2px solid rgba(255,255,255,0.35);
+    border-radius: 50%;
+    cursor: pointer; touch-action: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .move-btn:active { opacity: 0.65; }
+  .shoot-btn {
+    font-size: 18px; font-weight: 700; font-family: inherit;
+    padding: 16px 34px;
+    background: linear-gradient(135deg, #ffd700, #ff8c00);
+    color: #1a0040;
+    border: none; border-radius: 50px;
+    cursor: pointer; touch-action: none;
+  }
+  .shoot-btn:active { opacity: 0.85; }
+  .hint-text {
+    font-size: 12px; opacity: 0.4; text-align: center;
+    padding-bottom: 6px; color: #fff;
+    background: rgba(5,0,20,0.65);
+    flex-shrink: 0;
+  }
+
+  /* Overlay */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(5,0,20,0.80);
+    backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .overlay.show { opacity: 1; pointer-events: all; }
+  .result-card {
+    background: linear-gradient(135deg, #1a0040, #2d0060);
+    border: 2px solid #ffd700;
+    border-radius: 24px; padding: 40px 32px; text-align: center;
+    max-width: 88vw;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+  }
+  .result-emoji { font-size: 54px; }
+  .result-title { font-size: clamp(22px,5vw,30px); font-weight: 700; color: #ffd700; }
+  .result-msg { font-size: 16px; opacity: 0.85; }
+  .play-again-btn {
+    margin-top: 6px;
+    font-size: 18px; font-weight: 700; font-family: inherit;
+    padding: 14px 34px;
+    background: linear-gradient(135deg, #ffd700, #ff8c00);
+    color: #1a0040; border: none; border-radius: 50px;
+    cursor: pointer;
+  }
+
+  /* Confetti */
+  .confetti-wrap { position: fixed; inset: 0; pointer-events: none; z-index: 200; }
+  .cp { position: absolute; top: -20px; border-radius: 3px; animation: fall linear forwards; }
+  @keyframes fall {
+    to { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div id="stars"></div>
+
+<div class="top-bar">
+  <a class="back-btn" href="index.html">← Games</a>
+  <h1>🍬 Candy Rescue</h1>
+  <div class="top-spacer"></div>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="slabel">Wave</div>
+    <div class="svalue" id="wavePill">1</div>
+  </div>
+  <div class="stat-card">
+    <div class="slabel">Score</div>
+    <div class="svalue" id="scorePill">🌟 0</div>
+  </div>
+</div>
+
+<div class="stage" id="stage">
+  <div class="banner" id="banner">Wave Cleared! 🎉</div>
+  <div class="girl" id="girl">👧</div>
+  <div class="floor-zone" id="floorZone"></div>
+  <div class="ground"></div>
+</div>
+
+<div class="controls">
+  <button class="move-btn" id="leftBtn">◀</button>
+  <button class="shoot-btn" id="shootBtn">🍬 Shoot!</button>
+  <button class="move-btn" id="rightBtn">▶</button>
+</div>
+<div class="hint-text">Arrow keys or buttons to move · Spacebar or Shoot to fire</div>
+
+<div class="overlay" id="overlay">
+  <div class="result-card">
+    <div class="result-emoji" id="overEmoji">🎉</div>
+    <div class="result-title" id="overHeadline">Wave Cleared!</div>
+    <div class="result-msg" id="overSub">Get ready for Wave 2!</div>
+    <button class="play-again-btn" id="playAgainBtn" hidden onclick="resetGame()">🍬 Play Again</button>
+  </div>
+</div>
+
+<div class="confetti-wrap" id="confettiWrap"></div>
+
+<script>
+  const starsDiv = document.getElementById('stars');
+  for (let i = 0; i < 70; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    s.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*100}%;animation-delay:${Math.random()*2}s;animation-duration:${1.5+Math.random()*2}s`;
+    starsDiv.appendChild(s);
+  }
+
+  const ANIMAL_EMOJIS = ['🐰','🐼','🦊','🐸','🐵','🐨'];
+  const ROWS = 3, COLS = 6, CELL = 68;
+  const CANDY_COOLDOWN = 420;
+  const GIRL_SPEED = 6;
+
+  const stage = document.getElementById('stage');
+  const girl = document.getElementById('girl');
+  const floorZone = document.getElementById('floorZone');
+  const wavePill = document.getElementById('wavePill');
+  const scorePill = document.getElementById('scorePill');
+  const banner = document.getElementById('banner');
+  const overlay = document.getElementById('overlay');
+  const leftBtn = document.getElementById('leftBtn');
+  const rightBtn = document.getElementById('rightBtn');
+  const shootBtn = document.getElementById('shootBtn');
+  const confettiWrap = document.getElementById('confettiWrap');
+
+  let stageW, stageH, girlY;
+  let girlX;
+  let keys = { left: false, right: false };
+  let dragging = false;
+  let lastShotTime = 0;
+  let score = 0;
+  let wave = 1;
+  let paused = false;
+
+  let animals = [];
+  let formationX, formationY, formationDir = 1, formationSpeed, dropOffset = 0;
+  let candies = [];
+
+  function layout() {
+    const rect = stage.getBoundingClientRect();
+    stageW = rect.width; stageH = rect.height;
+    girlY = stageH - 66;
+    if (girlX === undefined) girlX = stageW / 2;
+    girlX = Math.min(Math.max(girlX, 30), stageW - 30);
+    positionGirl();
+  }
+
+  function positionGirl() {
+    girl.style.left = girlX + 'px';
+    girl.style.bottom = (stageH - girlY) + 'px';
+  }
+
+  let audioCtx;
+  function tone(freq, dur, type='sine', vol=0.14) {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = type; o.frequency.value = freq; g.gain.value = vol;
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start();
+      g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+      o.stop(audioCtx.currentTime + dur);
+    } catch(e) {}
+  }
+  const shootTone = () => tone(500 + Math.random()*100, 0.08, 'triangle', 0.1);
+  const popTone = () => { tone(700,0.08); setTimeout(()=>tone(950,0.1),60); };
+  const bounceTone = () => tone(300, 0.1, 'square', 0.06);
+  const waveTone = () => { tone(523,0.1); setTimeout(()=>tone(659,0.1),100); setTimeout(()=>tone(784,0.14),200); setTimeout(()=>tone(1046,0.2),320); };
+
+  function launchConfetti(count=30) {
+    const colors = ['#ff6fa0','#ffd166','#6ee7b7','#4cc9f0','#a78bfa','#ffd700','#ff9a5c'];
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('div');
+      p.className = 'cp';
+      const size = 6 + Math.random() * 8;
+      const dur = 1.0 + Math.random() * 1.0;
+      const delay = Math.random() * 0.4;
+      p.style.cssText = `width:${size}px;height:${size}px;background:${colors[i%colors.length]};left:${Math.random()*100}vw;animation-duration:${dur}s;animation-delay:${delay}s`;
+      confettiWrap.appendChild(p);
+      setTimeout(() => p.remove(), (dur + delay + 0.3) * 1000);
+    }
+  }
+
+  function buildWave() {
+    animals.forEach(a => a.el && a.el.remove());
+    animals = [];
+    const gridW = COLS * CELL;
+    formationX = (stageW - gridW) / 2;
+    formationY = 50;
+    formationDir = 1;
+    formationSpeed = 0.9 + (wave - 1) * 0.22;
+    dropOffset = 0;
+
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const emoji = ANIMAL_EMOJIS[(r + c + wave) % ANIMAL_EMOJIS.length];
+        const el = document.createElement('div');
+        el.className = 'animal-cell';
+        el.textContent = emoji;
+        stage.insertBefore(el, floorZone);
+        animals.push({ row: r, col: c, alive: true, el });
+      }
+    }
+    positionAnimals();
+    wavePill.textContent = wave;
+  }
+
+  function positionAnimals() {
+    animals.forEach(a => {
+      if (!a.alive) return;
+      const x = formationX + a.col * CELL;
+      const y = formationY + a.row * CELL + dropOffset;
+      a.el.style.left = x + 'px';
+      a.el.style.top = y + 'px';
+    });
+  }
+
+  function stepFormation() {
+    if (paused) return;
+    const aliveCells = animals.filter(a => a.alive);
+    if (aliveCells.length === 0) return;
+
+    formationX += formationSpeed * formationDir;
+
+    const cols = aliveCells.map(a => a.col);
+    const minCol = Math.min(...cols), maxCol = Math.max(...cols);
+    const leftEdge = formationX + minCol * CELL;
+    const rightEdge = formationX + maxCol * CELL + CELL;
+
+    if (leftEdge <= 10 || rightEdge >= stageW - 10) {
+      formationDir *= -1;
+      formationX = Math.min(Math.max(formationX, 10 - minCol*CELL), stageW - 10 - maxCol*CELL - CELL);
+      dropOffset += 22;
+      formationSpeed = Math.min(formationSpeed + 0.12, 3.2);
+      bounceTone();
+    }
+
+    const rows = aliveCells.map(a => a.row);
+    const maxRow = Math.max(...rows);
+    const lowestY = formationY + maxRow * CELL + dropOffset + CELL;
+    if (lowestY >= girlY) {
+      showGameOver();
+      return;
+    }
+
+    positionAnimals();
+  }
+
+  function stepGirl() {
+    if (keys.left) girlX -= GIRL_SPEED;
+    if (keys.right) girlX += GIRL_SPEED;
+    girlX = Math.min(Math.max(girlX, 30), stageW - 30);
+    positionGirl();
+  }
+
+  leftBtn.addEventListener('pointerdown', () => keys.left = true);
+  leftBtn.addEventListener('pointerup', () => keys.left = false);
+  leftBtn.addEventListener('pointerleave', () => keys.left = false);
+  rightBtn.addEventListener('pointerdown', () => keys.right = true);
+  rightBtn.addEventListener('pointerup', () => keys.right = false);
+  rightBtn.addEventListener('pointerleave', () => keys.right = false);
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') keys.left = true;
+    if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.right = true;
+    if (e.key === ' ') { e.preventDefault(); shootCandy(); }
+  });
+  window.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') keys.left = false;
+    if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.right = false;
+  });
+
+  floorZone.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    const rect = stage.getBoundingClientRect();
+    girlX = e.clientX - rect.left;
+    positionGirl();
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const rect = stage.getBoundingClientRect();
+    girlX = Math.min(Math.max(e.clientX - rect.left, 30), stageW - 30);
+    positionGirl();
+  });
+  window.addEventListener('pointerup', () => dragging = false);
+
+  shootBtn.addEventListener('click', shootCandy);
+
+  function shootCandy() {
+    const now = performance.now();
+    if (now - lastShotTime < CANDY_COOLDOWN) return;
+    lastShotTime = now;
+    shootTone();
+    girl.classList.remove('shoot-anim'); void girl.offsetWidth; girl.classList.add('shoot-anim');
+
+    const el = document.createElement('div');
+    el.className = 'candy';
+    el.textContent = '🍬';
+    stage.insertBefore(el, floorZone);
+    const c = { el, x: girlX, y: girlY - 20, speed: 9, alive: true };
+    candies.push(c);
+    positionCandy(c);
+  }
+
+  function positionCandy(c) {
+    c.el.style.left = (c.x - 12) + 'px';
+    c.el.style.top = (c.y - 12) + 'px';
+  }
+
+  function stepCandies() {
+    candies.forEach(c => {
+      if (!c.alive) return;
+      c.y -= c.speed;
+      positionCandy(c);
+
+      if (c.y < 0) { c.alive = false; c.el.remove(); return; }
+
+      for (const a of animals) {
+        if (!a.alive) continue;
+        const ax = formationX + a.col * CELL + CELL/2;
+        const ay = formationY + a.row * CELL + dropOffset + CELL/2;
+        const dx = c.x - ax, dy = c.y - ay;
+        if (Math.sqrt(dx*dx + dy*dy) < CELL/2 + 6) {
+          c.alive = false; c.el.remove();
+          popAnimal(a);
+          break;
+        }
+      }
+    });
+    candies = candies.filter(c => c.alive);
+  }
+
+  function popAnimal(a) {
+    a.alive = false;
+    popTone();
+    a.el.classList.add('pop');
+    launchConfetti(18);
+    score++;
+    scorePill.textContent = '🌟 ' + score;
+    setTimeout(() => a.el.remove(), 350);
+
+    if (animals.every(an => !an.alive)) {
+      waveComplete();
+    }
+  }
+
+  function showBanner(text, duration) {
+    banner.textContent = text;
+    banner.style.opacity = 0.9;
+    setTimeout(() => { banner.style.opacity = 0; }, duration);
+  }
+
+  function waveComplete() {
+    paused = true;
+    waveTone();
+    launchConfetti(60);
+    document.getElementById('overEmoji').textContent = '🎉';
+    document.getElementById('overHeadline').textContent = 'Wave ' + wave + ' Cleared!';
+    document.getElementById('overSub').textContent = 'Get ready for Wave ' + (wave + 1) + '!';
+    document.getElementById('playAgainBtn').hidden = true;
+    overlay.classList.add('show');
+    setTimeout(() => {
+      overlay.classList.remove('show');
+      wave++;
+      buildWave();
+      paused = false;
+    }, 1800);
+  }
+
+  function showGameOver() {
+    paused = true;
+    tone(300, 0.2, 'sawtooth', 0.12);
+    setTimeout(() => tone(220, 0.3, 'sawtooth', 0.1), 200);
+    document.getElementById('overEmoji').textContent = '😱';
+    document.getElementById('overHeadline').textContent = 'Oh no!';
+    document.getElementById('overSub').textContent = 'The animals reached the ground! Score: 🌟 ' + score;
+    document.getElementById('playAgainBtn').hidden = false;
+    overlay.classList.add('show');
+  }
+
+  function resetGame() {
+    overlay.classList.remove('show');
+    score = 0; wave = 1;
+    scorePill.textContent = '🌟 0';
+    candies.forEach(c => c.el.remove()); candies = [];
+    animals.forEach(a => a.el && a.el.remove()); animals = [];
+    paused = false;
+    buildWave();
+  }
+
+  function loop() {
+    stepGirl();
+    stepFormation();
+    stepCandies();
+    requestAnimationFrame(loop);
+  }
+
+  window.addEventListener('resize', layout);
+  layout();
+  buildWave();
+  requestAnimationFrame(loop);
+</script>
+</body>
+</html>
