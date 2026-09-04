@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Feed the Dragon</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Rounded, sans-serif;
+    color: #fff;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background: linear-gradient(135deg,#1a0040,#0a1560,#2d0060,#0a1560,#1a0040);
+    background-size: 400% 400%;
+    animation: bgShift 12s ease infinite;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  @keyframes bgShift {
+    0%,100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  #stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .star {
+    position: absolute;
+    width: 2px; height: 2px;
+    background: #fff;
+    border-radius: 50%;
+    animation: twinkle 2s infinite alternate;
+  }
+  @keyframes twinkle {
+    from { opacity: 0.15; }
+    to { opacity: 0.9; }
+  }
+
+  .top-bar {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 8px;
+    z-index: 1;
+  }
+  .back-btn {
+    color: rgba(255,255,255,0.75);
+    text-decoration: none;
+    font-size: 15px;
+    padding: 6px 14px;
+    border-radius: 50px;
+    background: rgba(255,255,255,0.1);
+    white-space: nowrap;
+    min-width: 80px;
+    text-align: center;
+  }
+  .top-bar h1 {
+    font-size: clamp(16px, 4vw, 22px);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-align: center;
+    flex: 1;
+  }
+  .top-spacer { min-width: 80px; }
+
+  .game {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 420px;
+    gap: 10px;
+    z-index: 1;
+    flex: 1;
+    padding: 0 12px;
+    min-height: 0;
+  }
+
+  .score-row {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+  }
+  .player-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 8px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(12px);
+    border: 2px solid transparent;
+    transition: all 0.25s ease;
+  }
+  .player-card.active {
+    border-color: #ffd700;
+    transform: scale(1.04);
+  }
+  .player-card .avatar { font-size: 30px; }
+  .player-card .pname { font-size: 14px; font-weight: 600; }
+  .player-card .pscore { font-size: 20px; font-weight: 700; color: #ffd700; }
+
+  .vs-badge { font-size: 18px; opacity: 0.45; font-weight: 700; flex-shrink: 0; }
+
+  .status-pill {
+    width: 100%;
+    text-align: center;
+    padding: 10px 20px;
+    border-radius: 50px;
+    background: rgba(255,255,255,0.1);
+    font-size: clamp(14px, 3.5vw, 17px);
+    font-weight: 600;
+  }
+
+  .stage {
+    flex: 1;
+    width: 100%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+  }
+
+  .mound {
+    position: absolute;
+    bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 70%; height: 55px;
+    background: rgba(111,214,163,0.18);
+    border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  }
+
+  .dragon-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.35s cubic-bezier(.34,1.56,.64,1);
+  }
+
+  .cheek-glow {
+    position: absolute;
+    width: 160px; height: 160px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,111,160,0.55), rgba(255,111,160,0));
+    transition: all 0.35s ease;
+    opacity: 0.2;
+  }
+
+  .dragon {
+    font-size: clamp(76px, 20vw, 108px);
+    position: relative;
+    z-index: 2;
+    filter: drop-shadow(0 10px 12px rgba(0,0,0,0.5));
+    transition: transform 0.3s ease;
+  }
+  .dragon.gulp { animation: gulp 0.3s ease; }
+  @keyframes gulp {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.12, 0.9); }
+    100% { transform: scale(1); }
+  }
+  .dragon.shake { animation: shake 0.6s ease; }
+  @keyframes shake {
+    0%,100% { transform: rotate(0deg); }
+    20% { transform: rotate(-6deg); }
+    40% { transform: rotate(6deg); }
+    60% { transform: rotate(-8deg); }
+    80% { transform: rotate(8deg); }
+  }
+
+  .sparkle-orbit { position: absolute; inset: -40px; pointer-events: none; }
+  .sparkle-orbit span {
+    position: absolute;
+    font-size: 18px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .candy-pile { position: absolute; bottom: 8px; font-size: 24px; }
+
+  .flying-candy {
+    position: fixed;
+    font-size: 56px;
+    z-index: 50;
+    pointer-events: none;
+  }
+
+  .controls {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 22px;
+  }
+
+  .die {
+    width: 72px; height: 72px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.1);
+    border: 2px solid rgba(255,255,255,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: 700;
+    color: #ffd700;
+  }
+  .die.rolling { animation: rollspin 0.08s linear infinite; }
+  @keyframes rollspin {
+    0% { transform: rotate(0deg) scale(1); }
+    50% { transform: rotate(8deg) scale(1.05); }
+    100% { transform: rotate(-8deg) scale(1); }
+  }
+
+  .new-game-btn {
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    border: 2px solid rgba(255,255,255,0.35);
+    border-radius: 50px;
+    padding: 14px 32px;
+    font-size: clamp(15px, 3vw, 19px);
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    width: 100%;
+    touch-action: none;
+    transition: opacity 0.15s;
+  }
+  .new-game-btn:active { opacity: 0.75; }
+  .new-game-btn:disabled { opacity: 0.35; cursor: default; }
+
+  .play-again-btn {
+    background: linear-gradient(135deg, #ffd700, #ff8c00);
+    color: #1a0040;
+    border: none;
+    border-radius: 50px;
+    padding: 16px 44px;
+    font-size: clamp(17px, 3vw, 21px);
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    touch-action: none;
+  }
+  .play-again-btn:active { opacity: 0.85; }
+
+  .hint-text { font-size: 13px; opacity: 0.5; text-align: center; }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5,0,20,0.80);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .overlay.show { opacity: 1; pointer-events: all; }
+  .result-card {
+    background: linear-gradient(135deg, #1a0040, #2d0060);
+    border: 2px solid #ffd700;
+    border-radius: 24px;
+    padding: 40px 32px;
+    text-align: center;
+    max-width: 88vw;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+  .result-emoji { font-size: 54px; }
+  .result-title { font-size: clamp(22px, 5vw, 30px); font-weight: 700; color: #ffd700; }
+  .result-msg { font-size: 16px; opacity: 0.85; line-height: 1.5; }
+
+  .confetti-wrap { position: fixed; inset: 0; pointer-events: none; z-index: 200; }
+  .cp { position: absolute; top: -20px; border-radius: 3px; animation: fall linear forwards; }
+  @keyframes fall {
+    to { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div id="stars"></div>
+
+<div class="top-bar">
+  <a class="back-btn" href="index.html">← Games</a>
+  <h1>🐉 Feed the Dragon</h1>
+  <div class="top-spacer"></div>
+</div>
+
+<div class="game">
+  <div class="score-row">
+    <div class="player-card" id="cardEllie">
+      <div class="avatar">👧</div>
+      <div class="pname">Ellie</div>
+      <div class="pscore" id="ellieScore">🏆 0</div>
+    </div>
+    <div class="vs-badge">vs</div>
+    <div class="player-card" id="cardGrandpa">
+      <div class="avatar">👴</div>
+      <div class="pname">Grandpa</div>
+      <div class="pscore" id="grandpaScore">🏆 0</div>
+    </div>
+  </div>
+
+  <div class="status-pill" id="statusPill">Ellie's turn — roll the die!</div>
+
+  <div class="stage">
+    <div class="mound"></div>
+    <div class="dragon-wrap" id="dragonWrap">
+      <div class="cheek-glow" id="cheekGlow"></div>
+      <div class="sparkle-orbit" id="sparkleOrbit">
+        <span style="top:0;left:50%;">✨</span>
+        <span style="top:30%;left:0;">⭐</span>
+        <span style="top:30%;right:0;left:auto;">⭐</span>
+        <span style="bottom:10%;left:20%;">✨</span>
+        <span style="bottom:10%;right:20%;left:auto;">✨</span>
+        <span style="top:60%;left:-10%;">💫</span>
+        <span style="top:60%;right:-10%;left:auto;">💫</span>
+      </div>
+      <div class="dragon" id="dragon">🐉</div>
+    </div>
+    <div class="candy-pile">🍬🍭🍬🍭🍬</div>
+  </div>
+
+  <div class="controls">
+    <div class="die" id="die">?</div>
+    <button class="new-game-btn" id="rollBtn" onclick="rollDie()">🎲 Roll the Die</button>
+    <div class="hint-text" id="hintText">Tap the button to take your turn!</div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="result-card">
+    <div class="result-emoji">🤧</div>
+    <div class="result-title" id="resultTitle">ACHOO!</div>
+    <div class="result-msg" id="resultMsg"></div>
+    <button class="play-again-btn" onclick="playAgain()">Play Again</button>
+  </div>
+</div>
+
+<div class="confetti-wrap" id="confettiWrap"></div>
+
+<script>
+  const starsDiv = document.getElementById('stars');
+  for (let i = 0; i < 70; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    s.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*100}%;animation-delay:${Math.random()*2}s;animation-duration:${1.5+Math.random()*2}s`;
+    starsDiv.appendChild(s);
+  }
+
+  const SNEEZE_AT = 20;
+  let total = 0;
+  let currentPlayer = 'ellie';
+  let startingPlayer = 'ellie';
+  let pendingRoll = 0;
+  let trophies = { ellie: 0, grandpa: 0 };
+  let busy = false;
+
+  const dragon = document.getElementById('dragon');
+  const dragonWrap = document.getElementById('dragonWrap');
+  const cheekGlow = document.getElementById('cheekGlow');
+  const sparkleOrbit = document.getElementById('sparkleOrbit');
+  const die = document.getElementById('die');
+  const rollBtn = document.getElementById('rollBtn');
+  const statusPill = document.getElementById('statusPill');
+  const hintText = document.getElementById('hintText');
+  const confettiWrap = document.getElementById('confettiWrap');
+
+  function playerName(p) { return p === 'ellie' ? 'Ellie' : 'Grandpa'; }
+
+  function updateCards() {
+    document.getElementById('cardEllie').classList.toggle('active', currentPlayer === 'ellie');
+    document.getElementById('cardGrandpa').classList.toggle('active', currentPlayer === 'grandpa');
+  }
+
+  function updateScores() {
+    document.getElementById('ellieScore').textContent = '🏆 ' + trophies.ellie;
+    document.getElementById('grandpaScore').textContent = '🏆 ' + trophies.grandpa;
+  }
+
+  function updateDragonVisual() {
+    const pct = Math.min(total / SNEEZE_AT, 1);
+    dragonWrap.style.transform = `scale(${1 + pct * 0.55})`;
+    cheekGlow.style.opacity = 0.15 + pct * 0.55;
+    cheekGlow.style.width = (140 + pct * 60) + 'px';
+    cheekGlow.style.height = (140 + pct * 60) + 'px';
+    const sparkles = sparkleOrbit.querySelectorAll('span');
+    const showCount = Math.round(pct * sparkles.length);
+    sparkles.forEach((s, i) => { s.style.opacity = i < showCount ? 1 : 0; });
+  }
+
+  function setStatus() {
+    statusPill.textContent = `${playerName(currentPlayer)}'s turn — roll the die!`;
+  }
+
+  let audioCtx;
+  function tone(freq, dur, type='sine', vol=0.15) {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = type; o.frequency.value = freq; g.gain.value = vol;
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start();
+      g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+      o.stop(audioCtx.currentTime + dur);
+    } catch(e) {}
+  }
+  const gulpTone = () => tone(300 + Math.random()*80, 0.09, 'triangle', 0.12);
+
+  function boomSound() {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const dur = audioCtx.sampleRate * 0.6;
+      const buf = audioCtx.createBuffer(1, dur, audioCtx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < dur; i++) d[i] = (Math.random()*2-1) * Math.exp(-i/(audioCtx.sampleRate*0.12));
+      const src = audioCtx.createBufferSource(); src.buffer = buf;
+      const filt = audioCtx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 200;
+      const g = audioCtx.createGain(); g.gain.value = 1.0;
+      src.connect(filt); filt.connect(g); g.connect(audioCtx.destination);
+      src.start();
+      tone(55, 0.6, 'sine', 0.5);
+      tone(80, 0.4, 'triangle', 0.3);
+    } catch(e) {}
+  }
+
+  function explodeDragon() {
+    // Flash
+    const flash = document.createElement('div');
+    flash.style.cssText = 'position:fixed;inset:0;background:rgba(255,240,180,0.92);z-index:400;pointer-events:none';
+    document.body.appendChild(flash);
+    flash.animate([{opacity:1},{opacity:0}], {duration:500, easing:'ease-out'}).onfinish = () => flash.remove();
+
+    // Hide dragon
+    dragon.style.transition = 'none';
+    dragon.style.opacity = '0';
+
+    // Pieces flying out from dragon center
+    const rect = dragon.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const pieces = ['🐉','🐉','🐉','🐉','🔥','🔥','🔥','💥','💥','✨','✨','💫'];
+    pieces.forEach((emoji, i) => {
+      const el = document.createElement('div');
+      el.style.cssText = `position:fixed;font-size:${28+Math.random()*38}px;left:${cx}px;top:${cy}px;z-index:350;pointer-events:none;transform:translate(-50%,-50%)`;
+      el.textContent = emoji;
+      document.body.appendChild(el);
+      const angle = (i / pieces.length) * Math.PI * 2 + (Math.random()-0.5)*0.4;
+      const dist = 90 + Math.random() * 180;
+      const dx = Math.cos(angle) * dist;
+      const dy = Math.sin(angle) * dist;
+      const spin = (Math.random()-0.5) * 720;
+      el.animate([
+        { transform: 'translate(-50%,-50%) scale(1.4) rotate(0deg)', opacity: 1 },
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.1) rotate(${spin}deg)`, opacity: 0 }
+      ], { duration: 900 + Math.random()*500, easing: 'ease-out' }).onfinish = () => el.remove();
+    });
+  }
+
+  function launchConfetti() {
+    const colors = ['#ff6fa0','#ffd166','#6ee7b7','#4cc9f0','#a78bfa','#ffd700','#ff9a5c'];
+    confettiWrap.innerHTML = '';
+    for (let i = 0; i < 60; i++) {
+      const p = document.createElement('div');
+      p.className = 'cp';
+      const size = 6 + Math.random() * 9;
+      const dur = 1.2 + Math.random() * 1.2;
+      const delay = Math.random() * 0.6;
+      p.style.cssText = `width:${size}px;height:${size}px;background:${colors[i%colors.length]};left:${Math.random()*100}vw;animation-duration:${dur}s;animation-delay:${delay}s`;
+      confettiWrap.appendChild(p);
+      setTimeout(() => p.remove(), (dur + delay + 0.3) * 1000);
+    }
+  }
+
+  function rollDie() {
+    if (busy) return;
+    busy = true;
+    rollBtn.disabled = true;
+    die.classList.add('rolling');
+    let ticks = 0;
+    const spin = setInterval(() => {
+      die.textContent = 1 + Math.floor(Math.random()*6);
+      ticks++;
+      if (ticks > 10) {
+        clearInterval(spin);
+        pendingRoll = 1 + Math.floor(Math.random()*6);
+        die.textContent = pendingRoll;
+        die.classList.remove('rolling');
+        rollBtn.style.display = 'none';
+        statusPill.textContent = `${playerName(currentPlayer)} rolled a ${pendingRoll}! 🍬`;
+        hintText.textContent = 'Feeding the dragon...';
+        setTimeout(() => feedDragon(), 1200);
+      }
+    }, 70);
+  }
+
+  function feedDragon() {
+    let fed = 0;
+
+    function feedOne() {
+      const rect = dragon.getBoundingClientRect();
+      const candy = document.createElement('div');
+      candy.className = 'flying-candy';
+      candy.textContent = ['🍬','🍭','🍡'][fed % 3];
+      const startX = window.innerWidth/2 + (Math.random()*80-40);
+      const startY = window.innerHeight - 120;
+      candy.style.left = startX + 'px';
+      candy.style.top = startY + 'px';
+      document.body.appendChild(candy);
+
+      candy.animate([
+        { transform: 'translate(0,0) scale(1)', opacity: 1 },
+        { transform: `translate(${rect.left+rect.width/2-startX}px,${rect.top+rect.height/2-startY}px) scale(0.35)`, opacity: 0.9 }
+      ], { duration: 760, easing: 'ease-in' }).onfinish = () => {
+        candy.remove();
+        total++;
+        gulpTone();
+        dragon.classList.remove('gulp'); void dragon.offsetWidth; dragon.classList.add('gulp');
+        updateDragonVisual();
+        fed++;
+        if (fed < pendingRoll && total < SNEEZE_AT) {
+          setTimeout(feedOne, 520);
+        } else {
+          setTimeout(afterFeeding, 500);
+        }
+      };
+    }
+    feedOne();
+  }
+
+  function afterFeeding() {
+    if (total >= SNEEZE_AT) {
+      triggerSneeze();
+    } else {
+      currentPlayer = currentPlayer === 'ellie' ? 'grandpa' : 'ellie';
+      updateCards();
+      setStatus();
+      hintText.textContent = 'Tap the button to take your turn!';
+      rollBtn.style.display = 'inline-block';
+      rollBtn.disabled = false;
+      die.textContent = '?';
+      busy = false;
+    }
+  }
+
+  function triggerSneeze() {
+    boomSound();
+    explodeDragon();
+    launchConfetti();
+    const feeder = currentPlayer;
+    const winner = feeder === 'ellie' ? 'grandpa' : 'ellie';
+    trophies[winner]++;
+    updateScores();
+    setTimeout(() => {
+      document.getElementById('resultTitle').textContent = '🎉 ACHOO! 🎉';
+      document.getElementById('resultMsg').textContent =
+        `${playerName(feeder)}'s candy was one too many — the dragon exploded with glitter! ${playerName(winner)} wins this round!`;
+      document.getElementById('overlay').classList.add('show');
+    }, 1400);
+  }
+
+  function playAgain() {
+    total = 0;
+    dragon.style.opacity = '1';
+    dragon.style.transition = '';
+    dragonWrap.style.transform = '';
+    updateDragonVisual();
+    document.getElementById('overlay').classList.remove('show');
+    startingPlayer = startingPlayer === 'ellie' ? 'grandpa' : 'ellie';
+    currentPlayer = startingPlayer;
+    updateCards();
+    setStatus();
+    hintText.textContent = 'Tap the button to take your turn!';
+    die.textContent = '?';
+    rollBtn.style.display = 'inline-block';
+    rollBtn.disabled = false;
+    busy = false;
+  }
+
+  updateCards();
+  updateScores();
+  updateDragonVisual();
+  setStatus();
+</script>
+</body>
+</html>
