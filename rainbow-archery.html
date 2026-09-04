@@ -322,7 +322,7 @@
   const TOTAL_ARROWS = 5;
   const MAX_PULL = 120;
   const MIN_PULL_TO_FIRE = 18;
-  const HIT_RADIUS = 55;
+  const HIT_RADIUS = 38;
 
   const stage = document.getElementById('stage');
   const target = document.getElementById('target');
@@ -347,7 +347,7 @@
   function layout() {
     const rect = stage.getBoundingClientRect();
     anchorX = rect.width / 2;
-    anchorY = rect.height - 190;
+    anchorY = rect.height - 100;
     bowAnchor.style.left = anchorX + 'px';
     bowAnchor.style.top = anchorY + 'px';
     targetMinX = 70;
@@ -370,7 +370,7 @@
     spans.forEach((s, i) => s.classList.toggle('used', i >= arrowsRemaining));
   }
 
-  targetVX = 1.4;
+  targetVX = 2.4;
   let lastSpeedChange = performance.now();
   function animateTarget(ts) {
     if (!gameOver) {
@@ -379,10 +379,10 @@
         targetVX *= -1;
         targetX = Math.min(Math.max(targetX, targetMinX), targetMaxX);
       }
-      if (ts - lastSpeedChange > 1600) {
+      if (ts - lastSpeedChange > 1200) {
         lastSpeedChange = ts;
         const dir = Math.random() < 0.5 ? -1 : 1;
-        targetVX = dir * (0.8 + Math.random() * 1.8);
+        targetVX = dir * (1.6 + Math.random() * 2.4);
       }
       target.style.left = targetX + 'px';
     }
