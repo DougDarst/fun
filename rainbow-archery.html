@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Rainbow Archery</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -311,6 +311,11 @@
 <div class="confetti-wrap" id="confettiWrap"></div>
 
 <script>
+    /* Prevent pinch-zoom and double-tap-zoom on iOS */
+    document.addEventListener('gesturestart', e => e.preventDefault());
+    document.addEventListener('gesturechange', e => e.preventDefault());
+    document.addEventListener('gestureend', e => e.preventDefault());
+    document.addEventListener('touchstart', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
   const starsDiv = document.getElementById('stars');
   for (let i = 0; i < 70; i++) {
     const s = document.createElement('div');

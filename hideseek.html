@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>🐻 Hide &amp; Seek!</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -224,6 +224,11 @@
 <div class="cw" id="confetti"></div>
 
 <script>
+    /* Prevent pinch-zoom and double-tap-zoom on iOS */
+    document.addEventListener('gesturestart', e => e.preventDefault());
+    document.addEventListener('gesturechange', e => e.preventDefault());
+    document.addEventListener('gestureend', e => e.preventDefault());
+    document.addEventListener('touchstart', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 /* ── Spot definitions ── */
 const SPOTS = [
     { id:'tree',     emoji:'🌳', name:'behind the tree',     x:'19%', y:'40%' },
