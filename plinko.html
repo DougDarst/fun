@@ -97,9 +97,9 @@ const ROW_HUES = [0, 28, 55, 100, 175, 220, 268, 315];
 
 /* ── Cup definitions ── */
 const CUP_META = [
-    { label:'STAR',    pts:100, hue:50  },
+    { label:'💀', pts:0,   hue:0,   skull:true  },
     { label:'JACKPOT', pts:500, hue:320 },
-    { label:'BONUS',   pts:200, hue:195 },
+    { label:'💀', pts:0,   hue:0,   skull:true  },
 ];
 
 /* ── Marble colors ── */
@@ -198,7 +198,7 @@ function drawBg() {
     for (const cup of cups) {
         const lg = ctx.createLinearGradient(0, H * 0.1, 0, cup.y);
         lg.addColorStop(0, 'rgba(0,0,0,0)');
-        lg.addColorStop(1, `hsla(${cup.hue},80%,50%,0.10)`);
+        lg.addColorStop(1, cup.skull ? 'rgba(40,0,0,0.18)' : `hsla(${cup.hue},80%,50%,0.10)`);
         ctx.fillStyle = lg;
         ctx.fillRect(cup.x - cup.w / 2, H * 0.1, cup.w, cup.y - H * 0.1);
     }
@@ -265,7 +265,6 @@ function drawPeg(p) {
 function drawCup(cup) {
     const age    = cup.landAt ? Date.now() - cup.landAt : Infinity;
     const active = age < 2300;
-    /* damped bounce: amplitude decays, oscillates at ~14 Hz */
     const bounce = active ? Math.sin(age * 0.088) * Math.exp(-age * 0.0028) * 14 : 0;
 
     const lx  = cup.x - (cup.w - 8) / 2;
@@ -275,13 +274,17 @@ function drawCup(cup) {
     const rad = 12;
 
     ctx.save();
-    ctx.shadowBlur  = active ? 45 : 14;
-    ctx.shadowColor = hsl(cup.hue, 85, 65);
 
-    /* Fill */
-    ctx.fillStyle = active
-        ? `hsla(${cup.hue},85%,55%,0.21)`
-        : `hsla(${cup.hue},70%,40%,0.09)`;
+    if (cup.skull) {
+        ctx.shadowBlur  = active ? 50 : 10;
+        ctx.shadowColor = active ? 'rgba(200,0,0,0.9)' : 'rgba(80,0,0,0.6)';
+        ctx.fillStyle   = active ? 'rgba(60,0,0,0.55)' : 'rgba(10,0,0,0.45)';
+    } else {
+        ctx.shadowBlur  = active ? 45 : 14;
+        ctx.shadowColor = hsl(cup.hue, 85, 65);
+        ctx.fillStyle   = active ? `hsla(${cup.hue},85%,55%,0.21)` : `hsla(${cup.hue},70%,40%,0.09)`;
+    }
+
     ctx.beginPath();
     ctx.moveTo(lx, top);
     ctx.lineTo(lx, bot - rad);
@@ -292,29 +295,36 @@ function drawCup(cup) {
     ctx.closePath();
     ctx.fill();
 
-    /* Stroke */
-    ctx.strokeStyle = hsl(cup.hue, 90, active ? 80 : 65);
-    ctx.lineWidth   = active ? 3.5 : 2.5;
+    ctx.strokeStyle = cup.skull
+        ? (active ? 'rgba(180,0,0,0.9)' : 'rgba(80,80,80,0.7)')
+        : hsl(cup.hue, 90, active ? 80 : 65);
+    ctx.lineWidth = active ? 3.5 : 2.5;
     ctx.stroke();
-
     ctx.shadowBlur = 0;
 
-    /* Label */
     const fs = Math.max(11, Math.round((rx - lx) * 0.17));
-    ctx.fillStyle    = active ? '#fff' : hsl(cup.hue, 90, 80);
-    ctx.font         = `900 ${fs}px -apple-system,sans-serif`;
-    ctx.textAlign    = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(cup.label, cup.x, cup.y + bounce + cup.h * 0.33);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
 
-    ctx.fillStyle = active ? 'rgba(255,255,255,0.95)' : `hsla(${cup.hue},80%,65%,0.80)`;
-    ctx.font      = `bold ${Math.round(fs * 0.72)}px -apple-system,sans-serif`;
-    ctx.fillText(cup.pts + ' pts', cup.x, cup.y + bounce + cup.h * 0.58);
-
-    if (cup.wins > 0) {
-        ctx.fillStyle = active ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.35)';
-        ctx.font = `bold ${Math.round(fs * 0.62)}px -apple-system,sans-serif`;
-        ctx.fillText('x' + cup.wins, cup.x, cup.y + bounce + cup.h * 0.80);
+    if (cup.skull) {
+        /* skull emoji */
+        ctx.font = `${Math.round(fs * 1.7)}px sans-serif`;
+        ctx.fillStyle = active ? 'rgba(255,255,255,0.95)' : 'rgba(160,160,160,0.75)';
+        ctx.fillText('💀', cup.x, cup.y + bounce + cup.h * 0.38);
+        ctx.font = `bold ${Math.round(fs * 0.72)}px -apple-system,sans-serif`;
+        ctx.fillStyle = active ? 'rgba(255,80,80,0.95)' : 'rgba(140,80,80,0.7)';
+        ctx.fillText('DOOM', cup.x, cup.y + bounce + cup.h * 0.72);
+    } else {
+        ctx.fillStyle = active ? '#fff' : hsl(cup.hue, 90, 80);
+        ctx.font      = `900 ${fs}px -apple-system,sans-serif`;
+        ctx.fillText(cup.label, cup.x, cup.y + bounce + cup.h * 0.33);
+        ctx.fillStyle = active ? 'rgba(255,255,255,0.95)' : `hsla(${cup.hue},80%,65%,0.80)`;
+        ctx.font      = `bold ${Math.round(fs * 0.72)}px -apple-system,sans-serif`;
+        ctx.fillText(cup.pts + ' pts', cup.x, cup.y + bounce + cup.h * 0.58);
+        if (cup.wins > 0) {
+            ctx.fillStyle = active ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.35)';
+            ctx.font = `bold ${Math.round(fs * 0.62)}px -apple-system,sans-serif`;
+            ctx.fillText('x' + cup.wins, cup.x, cup.y + bounce + cup.h * 0.80);
+        }
     }
     ctx.restore();
 }
@@ -495,10 +505,12 @@ function updatePhysics() {
 }
 
 function land(ci) {
+    const cup = cups[ci];
+    if (cup.skull) { landSkull(ci); return; }
+
     phase       = 'LAND';
     marbleOn    = false;
     particles   = [];
-    const cup   = cups[ci];
     cup.wins++;
     cup.landAt  = Date.now();
     totalPts   += cup.pts;
@@ -508,6 +520,7 @@ function land(ci) {
 
     const isJP = ci === 1;
     celebEl.textContent = isJP ? 'JACKPOT!!' : cup.label + '!';
+    celebEl.style.fontSize = '';
     celebEl.style.color = hsl(cup.hue, 90, 75);
     celebEl.style.textShadow =
         `0 0 60px ${hsl(cup.hue,90,65)}, 5px 5px 0 rgba(0,0,0,0.45)`;
@@ -518,6 +531,61 @@ function land(ci) {
         celebEl.classList.remove('show');
         phase = 'IDLE';
     }, 2200);
+}
+
+function landSkull(ci) {
+    phase    = 'LAND';
+    marbleOn = false;
+    particles = [];
+    cups[ci].landAt = Date.now();
+
+    skullSound();
+
+    /* Flash the screen dark red */
+    const flash = document.createElement('div');
+    flash.style.cssText = 'position:fixed;inset:0;background:rgba(120,0,0,0.55);z-index:55;pointer-events:none;transition:opacity 0.6s';
+    document.body.appendChild(flash);
+    setTimeout(() => { flash.style.opacity = '0'; }, 400);
+    setTimeout(() => flash.remove(), 1000);
+
+    /* Big skull */
+    celebEl.style.fontSize = 'min(55vw, 260px)';
+    celebEl.style.fontFamily = 'sans-serif';
+    celebEl.textContent = '💀';
+    celebEl.style.color = '#fff';
+    celebEl.style.textShadow = '0 0 80px rgba(255,0,0,0.9), 0 0 30px rgba(255,0,0,0.6)';
+    celebEl.classList.add('show');
+
+    setTimeout(() => {
+        celebEl.classList.remove('show');
+        celebEl.style.fontSize = '';
+        celebEl.style.fontFamily = '';
+        resetGame();
+    }, 2800);
+}
+
+function skullSound() {
+    try {
+        const a = ac();
+        [280, 200, 140, 95].forEach((f, i) => {
+            const o = a.createOscillator(), g = a.createGain();
+            o.type = 'sawtooth'; o.frequency.value = f;
+            o.connect(g); g.connect(a.destination);
+            const t0 = a.currentTime + i * 0.18;
+            g.gain.setValueAtTime(0.22, t0);
+            g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.45);
+            o.start(t0); o.stop(t0 + 0.45);
+        });
+    } catch(e){}
+}
+
+function resetGame() {
+    totalPts = 0;
+    ptsEl.textContent = '0 pts';
+    cups.forEach(c => { c.wins = 0; c.landAt = 0; });
+    marbleOn  = false;
+    particles = [];
+    phase     = 'IDLE';
 }
 
 function confetti(n, baseHue) {
