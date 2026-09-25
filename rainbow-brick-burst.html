@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Rainbow Brick Burst</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Rounded, sans-serif;
+    color: #fff;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+  }
+  body {
+    background: linear-gradient(135deg,#1a0040,#0a1560,#2d0060,#0a1560,#1a0040);
+    background-size: 400% 400%;
+    animation: bgShift 12s ease infinite;
+    display: flex; flex-direction: column;
+  }
+  @keyframes bgShift {
+    0%,100% { background-position: 0% 50%; }
+    50%      { background-position: 100% 50%; }
+  }
+
+  /* ── star field ── */
+  #stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .star {
+    position: absolute; width: 2px; height: 2px;
+    background: #fff; border-radius: 50%;
+    animation: twinkle 2s infinite alternate;
+  }
+  @keyframes twinkle { from { opacity: 0.15; } to { opacity: 0.9; } }
+
+  /* ── top bar ── */
+  .top-bar {
+    width: 100%;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px 6px;
+    z-index: 1; flex-shrink: 0;
+  }
+  .back-btn {
+    color: rgba(255,255,255,0.75);
+    text-decoration: none; font-size: 15px;
+    padding: 6px 14px; border-radius: 50px;
+    background: rgba(255,255,255,0.1);
+    white-space: nowrap; min-width: 80px; text-align: center;
+  }
+  .top-bar h1 {
+    font-size: clamp(15px, 4vw, 20px);
+    font-weight: 700; text-align: center; flex: 1;
+  }
+  .top-spacer { min-width: 80px; }
+
+  /* ── stat cards ── */
+  .stats-row {
+    width: 100%; max-width: 420px; align-self: center;
+    display: flex; gap: 10px;
+    padding: 0 12px 6px;
+    z-index: 1; flex-shrink: 0;
+  }
+  .stat-card {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; gap: 2px;
+    padding: 6px 10px; border-radius: 20px;
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(12px);
+  }
+  .stat-card .slabel {
+    font-size: 10px; opacity: 0.6; font-weight: 600;
+    letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .stat-card .svalue { font-size: 18px; font-weight: 700; color: #ffd700; }
+
+  /* ── game stage (the canvas — keeps its sky feel) ── */
+  .stage {
+    flex: 1; position: relative;
+    background: linear-gradient(180deg, #cdb8ff 0%, #eafcff 80%);
+    overflow: hidden; cursor: none; min-height: 0;
+    z-index: 1;
+  }
+  .cloud {
+    position: absolute;
+    background: rgba(255,255,255,0.85);
+    border-radius: 50px;
+    pointer-events: none;
+  }
+
+  /* ── bricks ── */
+  .brick {
+    position: absolute; border-radius: 10px;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.10), inset 0 -3px 0 rgba(0,0,0,0.08);
+    pointer-events: none;
+  }
+  .brick.pop { animation: brickPop 0.3s ease forwards; }
+  @keyframes brickPop {
+    0%   { transform: scale(1)   rotate(0deg);  opacity: 1; }
+    60%  { transform: scale(1.3) rotate(10deg); opacity: 1; }
+    100% { transform: scale(0.2) rotate(25deg); opacity: 0; }
+  }
+
+  /* ── ball ── */
+  .ball {
+    position: absolute; border-radius: 50%; z-index: 6; pointer-events: none;
+    background: radial-gradient(circle at 32% 28%, #ffffff, #ffe1ec 40%, #ff9fc0 100%);
+    box-shadow: 0 0 10px rgba(255,111,160,0.6), 0 3px 4px rgba(0,0,0,0.15);
+  }
+
+  /* ── paddle ── */
+  .paddle {
+    position: absolute; border-radius: 999px; z-index: 6; pointer-events: none;
+    background: linear-gradient(90deg,#ff6b6b,#ffd166,#a8e063,#4cc9f0,#a78bfa,#ff6fa0);
+    box-shadow: 0 5px 0 rgba(0,0,0,0.12);
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ── in-stage info banner ── */
+  .banner {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    font-size: 16px; font-weight: 700;
+    background: rgba(255,255,255,0.92); color: #4a3f55;
+    padding: 7px 18px; border-radius: 999px;
+    opacity: 0; white-space: nowrap; z-index: 30;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .banner.show { opacity: 1; }
+
+  /* ── level-clear confetti (CSS fall — project standard) ── */
+  .confetti-wrap { position: fixed; inset: 0; pointer-events: none; z-index: 200; }
+  .cp { position: absolute; top: -20px; border-radius: 3px; animation: fall linear forwards; }
+  @keyframes fall {
+    to { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div id="stars"></div>
+
+<div class="top-bar">
+  <a class="back-btn" href="index.html">← Games</a>
+  <h1>🌈 Rainbow Brick Burst</h1>
+  <div class="top-spacer"></div>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="slabel">Stars</div>
+    <div class="svalue" id="scoreEl">🌟 0</div>
+  </div>
+  <div class="stat-card">
+    <div class="slabel">Level</div>
+    <div class="svalue" id="levelEl">1</div>
+  </div>
+</div>
+
+<div class="stage" id="stage">
+  <div class="cloud" style="width:90px;height:32px;top:4%;left:6%;"></div>
+  <div class="cloud" style="width:64px;height:24px;top:9%;left:78%;"></div>
+  <div class="banner" id="banner"></div>
+</div>
+
+<div class="confetti-wrap" id="confettiWrap"></div>
+
+<script>
+  /* ── Prevent pinch-zoom on iOS ── */
+  document.addEventListener('gesturestart',  e => e.preventDefault());
+  document.addEventListener('gesturechange', e => e.preventDefault());
+  document.addEventListener('gestureend',    e => e.preventDefault());
+  document.addEventListener('touchstart', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+
+  /* ── Star field ── */
+  const starsDiv = document.getElementById('stars');
+  for (let i = 0; i < 70; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    s.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*100}%;` +
+                      `animation-delay:${Math.random()*2}s;animation-duration:${1.5+Math.random()*2}s`;
+    starsDiv.appendChild(s);
+  }
+
+  /* ════════════════════════════════════
+     CONSTANTS
+  ════════════════════════════════════ */
+  const COLS          = 8;
+  const ROWS          = 5;
+  const BRICK_GAP     = 8;
+  const TOP_MARGIN    = 58;    /* px from stage top to first brick row */
+  const SIDE_MARGIN   = 12;
+  const PADDLE_W      = 110;
+  const PADDLE_H      = 22;
+  const PADDLE_BOTTOM = 58;    /* px from stage bottom to paddle top */
+  const BALL_R        = 12;
+  const BASE_SPEED    = 5.2;
+  const ROW_COLORS    = ['#ff6b6b','#ff9a5c','#ffd166','#6ee7b7','#4cc9f0','#a78bfa'];
+
+  /* ── DOM refs ── */
+  const stage        = document.getElementById('stage');
+  const banner       = document.getElementById('banner');
+  const scoreEl      = document.getElementById('scoreEl');
+  const levelEl      = document.getElementById('levelEl');
+  const confettiWrap = document.getElementById('confettiWrap');
+
+  /* ── Game state ── */
+  let stageW, stageH, brickW;
+  let bricks  = [];
+  let paddleX = 0;                     /* 0 signals "not yet set" */
+  let ball    = { x: 0, y: 0, dx: 0, dy: 0 };
+  let ballEl, paddleEl;
+  let score   = 0;
+  let level   = 1;
+  let paused  = false;
+
+  /* ════════════════════════════════════
+     AUDIO
+     All sounds generated via Web Audio — no external files.
+  ════════════════════════════════════ */
+  let audioCtx;
+  function tone(freq, dur, type = 'sine', vol = 0.12) {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = type; o.frequency.value = freq; g.gain.value = vol;
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start();
+      g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+      o.stop(audioCtx.currentTime + dur);
+    } catch(e) {}
+  }
+
+  const bounceTone = () => tone(320 + Math.random()*40, 0.06, 'triangle', 0.08);
+  const popTone    = () => { tone(700,0.07); setTimeout(()=>tone(1000,0.09),55); };
+  const softTone   = () => tone(260, 0.12, 'sine', 0.07);
+  const cheerTone  = () => {
+    tone(523,0.1);
+    setTimeout(()=>tone(659, 0.1),  100);
+    setTimeout(()=>tone(784, 0.14), 200);
+    setTimeout(()=>tone(1046,0.2),  320);
+  };
+
+  /* ════════════════════════════════════
+     CONFETTI
+  ════════════════════════════════════ */
+  /* Level-clear celebration: squares fall from the top of the screen */
+  function launchConfetti(count = 55) {
+    const colors = ['#ff6fa0','#ffd166','#6ee7b7','#4cc9f0','#a78bfa','#ff9a5c','#ffd700'];
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('div');
+      p.className = 'cp';
+      const size  = 6 + Math.random() * 8;
+      const dur   = 1.1 + Math.random() * 1.1;
+      const delay = Math.random() * 0.5;
+      p.style.cssText =
+        `width:${size}px;height:${size}px;background:${colors[i%colors.length]};` +
+        `left:${Math.random()*100}vw;animation-duration:${dur}s;animation-delay:${delay}s`;
+      confettiWrap.appendChild(p);
+      setTimeout(() => p.remove(), (dur + delay + 0.3) * 1000);
+    }
+  }
+
+  /*
+   * Per-brick burst: particles fly outward from the brick's screen coordinates.
+   * Uses the Web Animations API because the origin point is dynamic (not top-of-screen).
+   */
+  function burstAt(screenX, screenY, count = 12) {
+    const colors = ['#ff6fa0','#ffd166','#6ee7b7','#4cc9f0','#a78bfa','#ff9a5c'];
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('div');
+      p.style.cssText =
+        `position:fixed;border-radius:3px;pointer-events:none;z-index:90;` +
+        `left:${screenX}px;top:${screenY}px;` +
+        `width:${5+Math.random()*6}px;height:${5+Math.random()*6}px;` +
+        `background:${colors[i%colors.length]}`;
+      document.body.appendChild(p);
+      const angle = Math.random() * Math.PI * 2;
+      const dist  = 30 + Math.random() * 70;
+      p.animate([
+        { transform: 'translate(0,0) rotate(0deg)', opacity: 1 },
+        { transform: `translate(${Math.cos(angle)*dist}px,${Math.sin(angle)*dist+80}px) rotate(${Math.random()*360}deg)`, opacity: 0 }
+      ], { duration: 600 + Math.random()*300, easing: 'ease-out' });
+      setTimeout(() => p.remove(), 950);
+    }
+  }
+
+  /* ════════════════════════════════════
+     BANNER (in-stage message)
+  ════════════════════════════════════ */
+  let bannerTimer;
+  function showBanner(text, ms = 1200) {
+    clearTimeout(bannerTimer);
+    banner.textContent = text;
+    banner.classList.add('show');
+    bannerTimer = setTimeout(() => banner.classList.remove('show'), ms);
+  }
+
+  /* ════════════════════════════════════
+     LAYOUT — called on boot and resize
+  ════════════════════════════════════ */
+  function layout() {
+    const rect = stage.getBoundingClientRect();
+    stageW = rect.width;
+    stageH = rect.height;
+    /* brick width fills available horizontal space */
+    brickW = (stageW - SIDE_MARGIN * 2 - BRICK_GAP * (COLS - 1)) / COLS;
+    if (paddleX === 0) paddleX = stageW / 2;
+    movePaddle(paddleX);
+  }
+
+  /* ════════════════════════════════════
+     PADDLE
+  ════════════════════════════════════ */
+  function movePaddle(x) {
+    paddleX = Math.max(PADDLE_W / 2, Math.min(stageW - PADDLE_W / 2, x));
+    if (paddleEl) {
+      paddleEl.style.left = (paddleX - PADDLE_W / 2) + 'px';
+      paddleEl.style.top  = (stageH - PADDLE_BOTTOM - PADDLE_H) + 'px';
+    }
+  }
+
+  /* ════════════════════════════════════
+     BUILD LEVEL
+  ════════════════════════════════════ */
+  function buildBricks() {
+    bricks.forEach(b => b.el && b.el.remove());
+    bricks = [];
+    const brickH = 30;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const x = SIDE_MARGIN + c * (brickW + BRICK_GAP);
+        const y = TOP_MARGIN  + r * (brickH + BRICK_GAP);
+        const el = document.createElement('div');
+        el.className    = 'brick';
+        el.style.left   = x + 'px';
+        el.style.top    = y + 'px';
+        el.style.width  = brickW + 'px';
+        el.style.height = brickH + 'px';
+        el.style.background = ROW_COLORS[r % ROW_COLORS.length];
+        stage.appendChild(el);
+        bricks.push({ x, y, w: brickW, h: brickH, alive: true, el });
+      }
+    }
+  }
+
+  function buildPaddleAndBall() {
+    if (paddleEl) paddleEl.remove();
+    if (ballEl)   ballEl.remove();
+
+    paddleEl = document.createElement('div');
+    paddleEl.className   = 'paddle';
+    paddleEl.style.width = PADDLE_W + 'px';
+    paddleEl.style.height= PADDLE_H + 'px';
+    paddleEl.innerHTML   = '<span style="font-size:18px;filter:drop-shadow(0 1px 1px rgba(0,0,0,0.2))">🪄</span>';
+    stage.appendChild(paddleEl);
+    movePaddle(paddleX);
+
+    ballEl = document.createElement('div');
+    ballEl.className    = 'ball';
+    ballEl.style.width  = (BALL_R * 2) + 'px';
+    ballEl.style.height = (BALL_R * 2) + 'px';
+    stage.appendChild(ballEl);
+
+    spawnBall();
+  }
+
+  /* ════════════════════════════════════
+     BALL
+  ════════════════════════════════════ */
+  function spawnBall() {
+    ball.x = paddleX;
+    ball.y = stageH - PADDLE_BOTTOM - PADDLE_H - BALL_R - 2;
+    /* launch mostly upward with a small random spread */
+    const angle = -Math.PI / 2 + (Math.random() * 0.6 - 0.3);
+    ball.dx = Math.cos(angle) * BASE_SPEED;
+    ball.dy = Math.sin(angle) * BASE_SPEED;
+    renderBall();
+  }
+
+  function renderBall() {
+    ballEl.style.left = (ball.x - BALL_R) + 'px';
+    ballEl.style.top  = (ball.y - BALL_R) + 'px';
+  }
+
+  /* ════════════════════════════════════
+     COLLISION HELPERS
+
+     circleRect: finds whether a circle overlaps an AABB and returns the
+     collision normal (pointing from the rect surface toward the ball center)
+     plus the overlap depth.  Used for both paddle and brick collisions.
+  ════════════════════════════════════ */
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  function circleRect(cx, cy, r, rx, ry, rw, rh) {
+    /* closest point on the rectangle to the circle center */
+    const nearX = clamp(cx, rx, rx + rw);
+    const nearY = clamp(cy, ry, ry + rh);
+    const dx = cx - nearX;
+    const dy = cy - nearY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist >= r) return null;                       /* no overlap */
+    /* degenerate: center is inside the rect — push straight upward */
+    if (dist < 0.0001) return { nx: 0, ny: -1, overlap: r };
+    return { nx: dx / dist, ny: dy / dist, overlap: r - dist };
+  }
+
+  /*
+   * reflect: mirror velocity (vx,vy) about a surface normal (nx,ny).
+   * A perfect reflection preserves kinetic energy, so speed stays constant.
+   */
+  function reflect(vx, vy, nx, ny) {
+    const dot = vx * nx + vy * ny;
+    return { dx: vx - 2 * dot * nx, dy: vy - 2 * dot * ny };
+  }
+
+  /* ════════════════════════════════════
+     MAIN PHYSICS LOOP
+  ════════════════════════════════════ */
+  function step() {
+    if (!paused) {
+      ball.x += ball.dx;
+      ball.y += ball.dy;
+
+      /* ── side walls ── */
+      if (ball.x - BALL_R < 0) {
+        ball.x  = BALL_R;
+        ball.dx = Math.abs(ball.dx);
+        bounceTone();
+      }
+      if (ball.x + BALL_R > stageW) {
+        ball.x  = stageW - BALL_R;
+        ball.dx = -Math.abs(ball.dx);
+        bounceTone();
+      }
+
+      /* ── top wall ── */
+      if (ball.y - BALL_R < 0) {
+        ball.y  = BALL_R;
+        ball.dy = Math.abs(ball.dy);
+        bounceTone();
+      }
+
+      /* ── paddle ──
+         Re-normalise to BASE_SPEED on every paddle hit so floating-point
+         drift can't accumulate into an uncontrollable fast ball over time.
+         The hit-position offset lets the player steer the ball.            */
+      const paddleTop = stageH - PADDLE_BOTTOM - PADDLE_H;
+      const ph = circleRect(ball.x, ball.y, BALL_R,
+                            paddleX - PADDLE_W / 2, paddleTop, PADDLE_W, PADDLE_H);
+      if (ph && ball.dy > 0) {
+        ball.y -= ph.overlap;
+        const hitPos = clamp((ball.x - paddleX) / (PADDLE_W / 2), -1, 1);
+        const maxDx  = BASE_SPEED * 0.82;
+        ball.dx = hitPos * maxDx;
+        ball.dy = -Math.sqrt(Math.max(BASE_SPEED * BASE_SPEED - ball.dx * ball.dx,
+                                      BASE_SPEED * BASE_SPEED * 0.25));
+        bounceTone();
+      }
+
+      /* ── bricks ──
+         Check all alive bricks; stop after the first collision per frame
+         to avoid popping two bricks with a single ball position.
+         After a hit:
+           1. Push the ball out of the brick so it never tunnels next frame.
+           2. Reflect velocity along the collision normal for accurate corner hits.
+           3. Re-normalise to BASE_SPEED to prevent drift.
+           4. Enforce a minimum |dy| so the ball can't get stuck bouncing sideways. */
+      for (const b of bricks) {
+        if (!b.alive) continue;
+        const hit = circleRect(ball.x, ball.y, BALL_R, b.x, b.y, b.w, b.h);
+        if (!hit) continue;
+
+        /* 1. push out */
+        ball.x += hit.nx * (hit.overlap + 0.5);
+        ball.y += hit.ny * (hit.overlap + 0.5);
+
+        /* 2. reflect */
+        const v = reflect(ball.dx, ball.dy, hit.nx, hit.ny);
+        ball.dx = v.dx; ball.dy = v.dy;
+
+        /* 3. normalise speed */
+        const spd = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+        if (spd > 0.001) {
+          ball.dx = ball.dx / spd * BASE_SPEED;
+          ball.dy = ball.dy / spd * BASE_SPEED;
+        }
+
+        /* 4. minimum vertical component (avoids near-horizontal rut) */
+        const MIN_DY = BASE_SPEED * 0.22;
+        if (Math.abs(ball.dy) < MIN_DY) {
+          ball.dy = ball.dy >= 0 ? MIN_DY : -MIN_DY;
+          const spd2 = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+          if (spd2 > 0.001) { ball.dx = ball.dx/spd2*BASE_SPEED; ball.dy = ball.dy/spd2*BASE_SPEED; }
+        }
+
+        popBrick(b);
+        break;
+      }
+
+      /* ── missed paddle → friendly respawn, no score penalty ── */
+      if (ball.y - BALL_R > stageH) {
+        softTone();
+        showBanner('Here we go again! 🌈', 900);
+        spawnBall();
+      }
+
+      renderBall();
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  /* ════════════════════════════════════
+     BRICK POP
+  ════════════════════════════════════ */
+  function popBrick(b) {
+    b.alive = false;
+    b.el.classList.add('pop');
+    popTone();
+
+    /* confetti burst at the brick's screen-space centre */
+    const sr = stage.getBoundingClientRect();
+    burstAt(sr.left + b.x + b.w / 2, sr.top + b.y + b.h / 2, 12);
+
+    setTimeout(() => b.el.remove(), 320);
+
+    score++;
+    scoreEl.textContent = '🌟 ' + score;
+
+    if (bricks.every(bb => !bb.alive)) levelClear();
+  }
+
+  /* ════════════════════════════════════
+     LEVEL CLEAR
+  ════════════════════════════════════ */
+  function levelClear() {
+    paused = true;
+    cheerTone();
+    launchConfetti(55);
+    showBanner('Level ' + level + ' Clear! 🎉', 1700);
+    setTimeout(() => {
+      level++;
+      levelEl.textContent = level;
+      buildBricks();
+      spawnBall();
+      paused = false;
+    }, 1800);
+  }
+
+  /* ════════════════════════════════════
+     INPUT — mouse or touch drives the paddle
+  ════════════════════════════════════ */
+  stage.addEventListener('pointermove', e => {
+    movePaddle(e.clientX - stage.getBoundingClientRect().left);
+  });
+  stage.addEventListener('pointerdown', e => {
+    movePaddle(e.clientX - stage.getBoundingClientRect().left);
+  });
+
+  /* ════════════════════════════════════
+     RESIZE — reflow bricks to new dimensions, keep score/level
+  ════════════════════════════════════ */
+  window.addEventListener('resize', () => {
+    layout();
+    buildBricks();
+    spawnBall();
+  });
+
+  /* ════════════════════════════════════
+     BOOT
+  ════════════════════════════════════ */
+  layout();
+  buildBricks();
+  buildPaddleAndBall();
+  requestAnimationFrame(step);
+</script>
+</body>
+</html>
